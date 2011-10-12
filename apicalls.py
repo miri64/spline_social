@@ -77,3 +77,6 @@ class Authorization:
                 )
         else:
             return dict(parse_qsl(content))
+
+class IdenticaApi(identica.Api):
+    pass
