@@ -18,10 +18,11 @@ class User(Base):
         self.__dict__['db'] = DBConn()
         self.user_id = user_id
         if salt == None:
-            self.salt = ''.join(map(lambda x:chr(range(128)[ord(x)%128]), os.urandom(255)))
+            self.salt = ''.join(map(lambda x:chr(range(128)[ord(x)%128]), os.urandom(128)))
+            self.password = password
         else:
             self.salt = salt
-        self.password = (password,)
+            self.password = (password,)
         self.banned = banned
         self.gets_mail = gets_mail
         
