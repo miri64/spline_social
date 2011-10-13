@@ -19,7 +19,7 @@ class User(Base):
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     salt = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     
-    def __init__(self, user_id, ldab_id, password, banned = False, gets_mail = False, salt = None):
+    def __init__(self, user_id, ldap_id, password, banned = False, gets_mail = False, salt = None):
         self.__dict__['db'] = DBConn()
         self.user_id = user_id
         self.ldap_id = ldap_id
@@ -127,7 +127,7 @@ class Login(Base):
         self.expires = expires
     
     def __repr__(self):
-        return "<Post('%s','%s')>" % self.irc_id, str(self.expires)
+        return "<Post('%s','%s')>" % (self.irc_id, str(self.expires))
 
 class DBConn(object):
     def __new__(type, *args, **kwargs):
