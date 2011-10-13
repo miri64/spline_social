@@ -89,6 +89,41 @@ class Post(Base):
     def __repr__(self):
         return "<Post('%s')>" % self.status_id
 
+class Login(Base):
+    __tablename__ = 'logins'
+    
+    irc_id = sqlalchemy.Column(
+            sqlalchemy.String, 
+            primary_key = True,
+            unique = True
+        )
+    user_id = sqlalchemy.Column(
+            sqlalchemy.String, 
+            sqlalchemy.ForeignKey(
+                    'users.user_id', 
+                    onupdate="CASCADE", 
+                    ondelete="CASCADE"
+                )
+        )
+    expires = sqlalchemy.Column(
+            sqlalchemy.DateTime,
+            sqlalchemy.CheckConstraint("expires >= DATETIME('now')"), 
+            primary_key = True,
+            unique = True
+        )
+    
+    user = sqlalchemy.orm.relationship(
+            User, 
+            backref=sqlalchemy.orm.backref('logins')
+        )
+    
+    def __init__(self, irc_id, expires):
+        self.irc_id = irc_id
+        self.expires = expires
+    
+    def __repr__(self):
+        return "<Post('%s','%s')>" % self.irc_id, str(self.expires)
+
 class DBConn(object):
     def __new__(type, *args, **kwargs):
         if not '_the_instance' in type.__dict__:
