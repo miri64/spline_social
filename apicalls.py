@@ -6,6 +6,8 @@ try:
 except:
   from cgi import parse_qsl
 
+from db import User
+
 import oauth2 as oauth
 import twitter as identica
 
@@ -79,4 +81,8 @@ class Authorization:
             return dict(parse_qsl(content))
 
 class IdenticaApi(identica.Api):
-    pass
+    def PostUpdate(self, source, *args, **kwargs):
+        user = User.get_by_irc_id(source)
+        status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
+        user.add_post(status)
+        return status
