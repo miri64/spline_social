@@ -104,6 +104,18 @@ class User(Base):
                 filter(User.user_id == user_id).first()
         user.session = db_session
         return user
+    
+    @staticmethod
+    def get_by_irc_id(irc_id):
+        db = DBConn()
+        db_session = db.get_session()
+        user = db_session.query(User). \
+                select_from(sqlalchemy.orm.join(User, Login)). \
+                filter(Login.irc_id == irc_id).first()
+        user.session = db_session
+        if user == None:
+            raise User.NotLoggedIn("You must identify to use this command.")
+        return user
 
 class Post(Base):
     __tablename__ = 'posts'
