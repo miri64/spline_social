@@ -8,7 +8,11 @@ Base = declarative_base()
 
 class User(Base):
     __tablename__ = 'user'
-    user_id = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
+    user_id = sqlalchemy.Column(
+            sqlalchemy.String, 
+            primary_key=True, 
+            unique=True
+        )
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
