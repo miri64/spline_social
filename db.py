@@ -7,7 +7,7 @@ from hashlib import sha256 as sha
 Base = declarative_base()
 
 class User(Base):
-    __tablename__ = 'user'
+    __tablename__ = 'users'
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
             primary_key=True, 
@@ -60,7 +60,7 @@ class User(Base):
         return self.password == self._get_pwhash(password)
 
 class Post(Base):
-    __tablename__ = 'post'
+    __tablename__ = 'posts'
     status_id = sqlalchemy.Column(
             sqlalchemy.Integer, 
             primary_key=True,
@@ -69,7 +69,7 @@ class Post(Base):
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
             sqlalchemy.ForeignKey(
-                    'user.user_id', 
+                    'users.user_id', 
                     onupdate="CASCADE", 
                     ondelete="CASCADE"
                 )
