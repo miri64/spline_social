@@ -59,6 +59,36 @@ class User(Base):
     def validate_password(self,password):
         return self.password == self._get_pwhash(password)
 
+class Post(Base):
+    __tablename__ = 'post'
+    status_id = sqlalchemy.Column(
+            sqlalchemy.Integer, 
+            primary_key=True,
+            unique=True
+        )
+    user_id = sqlalchemy.Column(
+            sqlalchemy.String, 
+            sqlalchemy.ForeignKey(
+                    'user.user_id', 
+                    onupdate="CASCADE", 
+                    ondelete="CASCADE"
+                )
+        )
+    
+    user = sqlalchemy.orm.relationship(
+            User, 
+            backref=sqlalchemy.orm.backref('posts')
+        )
+    
+    def __init__(self, status):
+        if isinstance(status,int):
+            self.status_id = status
+        else:
+            self.status_id = status.id
+    
+    def __repr__(self):
+        return "<Post('%s')>" % self.status_id
+
 class DBConn(object):
     def __new__(type, *args, **kwargs):
         if not '_the_instance' in type.__dict__:
