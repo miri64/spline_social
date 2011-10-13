@@ -87,6 +87,15 @@ class User(Base):
         else:
             return False
     
+    def add_post(self,status):
+        db = DBConn()
+        db_session = db.get_session()
+        self.posts.append(Post(status))
+        db_session.commit()
+        db_session.close()
+        self.session.commit()
+        self.session.close()
+    
     @staticmethod
     def get_by_user_id(user_id):
         db = DBConn()
