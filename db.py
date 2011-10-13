@@ -13,14 +13,16 @@ class User(Base):
             primary_key=True, 
             unique=True
         )
+    ldap_id = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     salt = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     
-    def __init__(self, user_id, password, banned = False, gets_mail = False, salt = None):
+    def __init__(self, user_id, ldab_id, password, banned = False, gets_mail = False, salt = None):
         self.__dict__['db'] = DBConn()
         self.user_id = user_id
+        self.ldap_id = ldap_id
         if salt == None:
             self.salt = ''.join(map(lambda x:chr(range(128)[ord(x)%128]), os.urandom(128)))
             self.password = password
