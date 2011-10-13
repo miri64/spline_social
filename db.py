@@ -69,3 +69,19 @@ class DBConn(object):
     def get_session(self):
         Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
         return Session()
+    
+    def add(self, obj):
+        db_session = self.get_session()
+        db_session.add(obj)
+        try:
+            db_session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            pass
+        finally:
+            db_session.close()
+    
+    def get_query(self, type):
+        db_session = self.get_session()
+        query = db_session.query(type)
+        db_session.close()
+        return query
