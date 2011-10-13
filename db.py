@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -7,6 +8,13 @@ from hashlib import sha256 as sha
 Base = declarative_base()
 
 class User(Base):
+    class NotLoggedIn(Exception):
+        def __init__(self, msg):
+            self.msg = msg
+        
+        def __repr__(self):
+            return self.msg
+    
     __tablename__ = 'users'
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
@@ -60,6 +68,33 @@ class User(Base):
     
     def validate_password(self,password):
         return self.password == self._get_pwhash(password)
+    
+    def login(self,irc_id,password):
+        if self.validate_password(password):
+            db = DBConn()
+            db_session = db.get_session()
+            login = db_session.query(Login).filter(Login.irc_id == irc_id).first()
+            if login == None:
+                login = Login(irc_id,datetime.now()+timedelta(1))
+                self.logins.append(login)
+            else:
+                login.expires = datetime.now()+timedelta(1)
+            db_session.commit()
+            db_session.close()
+            self.session.commit()
+            self.session.close()
+            return True
+        else:
+            return False
+    
+    @staticmethod
+    def get_by_user_id(user_id):
+        db = DBConn()
+        db_session = db.get_session()
+        user = db_session.query(User). \
+                filter(User.user_id == user_id).first()
+        user.session = db_session
+        return user
 
 class Post(Base):
     __tablename__ = 'posts'
