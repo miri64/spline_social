@@ -74,7 +74,8 @@ class Post(Base):
                     'users.user_id', 
                     onupdate="CASCADE", 
                     ondelete="CASCADE"
-                )
+                ),
+            nullable=False
         )
     
     user = sqlalchemy.orm.relationship(
@@ -105,13 +106,15 @@ class Login(Base):
                     'users.user_id', 
                     onupdate="CASCADE", 
                     ondelete="CASCADE"
-                )
+                ),
+            nullable=False
         )
     expires = sqlalchemy.Column(
             sqlalchemy.DateTime,
             sqlalchemy.CheckConstraint("expires >= DATETIME('now')"), 
             primary_key = True,
-            unique = True
+            unique = True,
+            nullable=False
         )
     
     user = sqlalchemy.orm.relationship(
