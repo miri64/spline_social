@@ -24,7 +24,7 @@ class User(Base):
         self.user_id = user_id
         self.ldap_id = ldap_id
         if salt == None:
-            self.salt = ''.join(map(lambda x:chr(range(128)[ord(x)%128]), os.urandom(128)))
+            self.salt = ''.join(map(lambda x:'./12345678890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'[ord(x)%65], os.urandom(64)))
             self.password = password
         else:
             self.salt = salt
