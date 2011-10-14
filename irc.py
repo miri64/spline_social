@@ -140,21 +140,21 @@ class TwitterBot(SingleServerIRCBot):
                 password = tokens[2]
                 self.do_identify(conn, event, nick, username, password)
             else:
-                self.reply_usage('identify <username> <password>')
+                self.reply_usage(conn, event, nick, 'identify <username> <password>')
         elif command == "history":
             pass
         elif command == "post":
-            tokens = cmd.split()
-            if len(tokens) == 2:
-                self.do_post(conn, event, nick, tokens[1])
+            message = cmd[len("post "):].strip()
+            if len(message) > 0:
+                self.do_post(conn, event, nick, message)
             else:
-                self.reply_usage('post <message>')
+                self.reply_usage(conn, event, nick, 'post <message>')
         elif command == "delete":
             tokens = cmd.split()
             if len(tokens) == 2:
                 self.do_delete(conn, event, nick, tokens[1])
             else:
-                self.reply_usage('remove {<post_id> | last}')
+                self.reply_usage(conn, event, nick, 'remove {<post_id> | last}')
         elif command == "reply":
             pass
         else:
