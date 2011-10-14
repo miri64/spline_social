@@ -46,8 +46,11 @@ class TwitterBot(SingleServerIRCBot):
     
     def do_post(self, conn, event, nick, message):
         try:
-            status = self.posting_api.PostUpdate(event.source(), message)
-            reply = "%s, I posted the following update: %s" % (nick, status.text)
+            if len(message) > 0:
+                status = self.posting_api.PostUpdate(event.source(), message)
+                reply = "%s, I posted the following update: %s" % (nick, status.text)
+            else:
+                reply = "%s, you want to post an empty string?" % nick
         except IdenticaError:
             reply = "%s, text must be less than or equal to " % nick + \
                     "140 characters. Your text has length %d." % len(message)
