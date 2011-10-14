@@ -1,9 +1,9 @@
 from multiprocessing import Process
-import time, config
 from ircbot import SingleServerIRCBot
 from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
 from db import User
 from apicalls import IdenticaError
+import sys, time, traceback, config
 
 class TwitterBot(SingleServerIRCBot):
     def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
@@ -12,6 +12,7 @@ class TwitterBot(SingleServerIRCBot):
         self.posting_api = posting_api
         self.short_symbols = short_symbols
         self.since_id = since_id
+        self.mention_grabber = None
 
     def on_nicknameinuse(self, conn, event):
         conn.nick(conn.get_nickname() + "_")
@@ -118,3 +119,12 @@ class TwitterBot(SingleServerIRCBot):
                              "https://identi.ca/notice/%d" % status.id
                             )
                     conn.privmsg(channel, mention)
+    
+    def start(self):
+        try:
+            SingleServerIRCBot.start(self)
+        except BaseException:
+            sys.stderr.write(traceback.format_exc())
+            self.mention_grabber.terminate()
+            exit(1)
+        
