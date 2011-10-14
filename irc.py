@@ -17,6 +17,11 @@ class TwitterBot(SingleServerIRCBot):
         conn.nick(conn.get_nickname() + "_")
 
     def on_welcome(self, conn, event):
+        self.mention_grabber = Process(
+                target=TwitterBot.get_mentions, 
+                args=(conn, self.channel, self.posting_api, self.since_id)
+            )
+        self.mention_grabber.start()
         conn.join(self.channel)
     
     def on_disconnect(self, conn, event):
@@ -54,3 +59,26 @@ class TwitterBot(SingleServerIRCBot):
             pass
         else:
             conn.notice(nick, "Unknown command: " + cmd)
+    
+    @staticmethod
+    def get_mentions(conn, channel, posting_api, since_id):
+        timestr = lambda sec: time.strftime(
+                "%Y-%m-%d %H:%M:%S",
+                time.localtime(sec)
+            )
+        while 1:
+            time.sleep(10)
+            print 'fetch_mentions'
+            statuses = posting_api.GetMentions(since_id)
+            print 'got', len(statuses)
+            if len(statuses) > 0 and conn.socket != None:   # if there is a connection
+                since_id = max([status.id for status in statuses])
+                conf.identica.since_id = since_id
+                for status in statuses:
+                    mention = "@%s: %s (%s, %s)" % \
+                            (status.user.screen_name,
+                             status.text, 
+                             timestr(status.created_at_in_seconds),
+                             "https://identi.ca/notice/%d" % status.id
+                            )
+                    conn.privmsg(channel, mention)
