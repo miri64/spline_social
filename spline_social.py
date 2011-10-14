@@ -35,7 +35,7 @@ def main(argv):
     driver      = conf.db.driver
     username    = conf.db.username
     password    = conf.db.password
-    name        = conf.db.name
+    name        = conf.db.database
     
     consumer_key = conf.identica.consumer_key
     consumer_secret = conf.identica.consumer_secret
