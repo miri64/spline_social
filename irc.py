@@ -35,6 +35,7 @@ class TwitterBot(SingleServerIRCBot):
         if event.arguments()[0][0] in self.short_symbols and \
                 len(event.arguments()[0]) > 1:
             cmd = event.arguments()[0][1:]
+            self.do_command(event, cmd)
         else:
             args = event.arguments()[0].split(":", 1)
             if len(args) == 1:
@@ -42,7 +43,9 @@ class TwitterBot(SingleServerIRCBot):
             if len(args) > 1 and \
                     irc_lower(args[0]) == irc_lower(self.connection.get_nickname()):
                 cmd = args[1].strip()
-        self.do_command(event, cmd)
+            else:
+                return
+            self.do_command(event, cmd)
     
     def do_post(self, conn, event, nick, message):
         try:
