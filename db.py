@@ -124,7 +124,7 @@ class Post(Base):
             primary_key=True,
             unique=True
         )
-    user_id = sqlalchemy.Column(
+    poster_id = sqlalchemy.Column(
             sqlalchemy.String, 
             sqlalchemy.ForeignKey(
                     'users.user_id', 
@@ -133,20 +133,63 @@ class Post(Base):
                 ),
             nullable=False
         )
+    deleted = sqlalchemy.Column(sqlalchemy.Boolean, default=False, nullable=False)
+    deleter_id = sqlalchemy.Column(
+            sqlalchemy.String, 
+            sqlalchemy.ForeignKey(
+                    'users.user_id', 
+                    onupdate="CASCADE", 
+                    ondelete="SET NULL"
+                ),
+            default=None
+        )
     
     user = sqlalchemy.orm.relationship(
             User, 
-            backref=sqlalchemy.orm.backref('posts')
+            backref=sqlalchemy.orm.backref('posts'),
+            primaryjoin = User.user_id == poster_id
         )
     
-    def __init__(self, status):
+    deleter = sqlalchemy.orm.relationship(
+            User, 
+            backref=sqlalchemy.orm.backref('deleted_posts'),
+            primaryjoin = User.user_id == deleter_id
+        )
+    
+    class DoesNotExist(Exception):
+        def __init__(self, msg):
+            self.msg = msg
+        
+        def __repr__(self):
+            return self.msg
+    
+    def __init__(self, status, deleted = False, deleter = None):
         if isinstance(status,int):
             self.status_id = status
         else:
             self.status_id = status.id
+        self.deleted = deleted
+        self.deleter = deleter
     
     def __repr__(self):
         return "<Post('%s')>" % self.status_id
+    
+    @staticmethod
+    def delete(status_id, irc_id = None):
+        db = DBConn()
+        db_session = db.get_session()
+        post = db_session.query(Post). \
+                filter(Post.status_id == status_id).first()
+        if post != None:
+            if irc_id != None:
+                user = User.get_by_irc_id(irc_id)
+                user.session.close()
+                post.deleter = user
+            post.deleted = True
+            db_session.commit()
+        else:
+            raise Post.DoesNotExist("Post %d not tracked" % status_id)
+        db_session.close()
 
 class Login(Base):
     __tablename__ = 'logins'
