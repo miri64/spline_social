@@ -3,6 +3,7 @@ from ircbot import SingleServerIRCBot
 from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
 from db import User, Post
 from apicalls import IdenticaError
+from config import Config
 import sys, time, traceback, config, re
 
 class TwitterBot(SingleServerIRCBot):
@@ -166,7 +167,8 @@ class TwitterBot(SingleServerIRCBot):
             time.sleep(10)
             statuses = posting_api.GetMentions(since_id)
             if len(statuses) > 0 and conn.socket != None:   # if there is a connection
-                since_id = max([status.id for status in statuses])
+                since_id = max(statuses, key = lambda s: s.id).id
+                conf = Config()
                 conf.identica.since_id = since_id
                 for status in statuses:
                     mention = "@%s: %s (%s, %s)" % \
