@@ -63,7 +63,11 @@ class TwitterBot(SingleServerIRCBot):
             else:
                 reply = "%s, you want to post an empty string?" % nick
         except IdenticaError, e:
-            reply = "%s, %s", (nick, e)
+            if str(e).find("Text must be less than or equal to") == 0:
+                reply = "%s, text must be less than or equal to " % nick + \
+                        "140 characters. Your text has length %d." % len(message)
+            else:
+                reply = "%s, %s", (nick, e)
         except User.NotLoggedIn:
             reply = "You must be identified to use the 'post' command"
         if event.target() in self.channels.keys():
