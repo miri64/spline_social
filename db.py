@@ -124,6 +124,10 @@ class Post(Base):
             primary_key=True,
             unique=True
         )
+    created_at = sqlalchemy.Column(
+            sqlalchemy.DateTime, 
+            nullable=False
+        )
     poster_id = sqlalchemy.Column(
             sqlalchemy.String, 
             sqlalchemy.ForeignKey(
@@ -163,11 +167,12 @@ class Post(Base):
         def __repr__(self):
             return self.msg
     
-    def __init__(self, status, deleted = False, deleter = None):
+    def __init__(self, status, created_at, deleted = False, deleter = None):
         if isinstance(status,int):
             self.status_id = status
         else:
             self.status_id = status.id
+        self.created_at = created_at
         self.deleted = deleted
         self.deleter = deleter
     
