@@ -22,6 +22,8 @@ def get_authorization(consumer_key, consumer_secret):
 def main(argv):
     if len(argv) > 1:
         config_file = argv[1]
+    else:
+        config_file = CONFIG_FILE
     conf    = config.Config(config_file)
     server  = conf.irc.server
     port    = conf.irc.port
