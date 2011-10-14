@@ -43,6 +43,20 @@ class TwitterBot(SingleServerIRCBot):
                 cmd = args[1].strip()
         self.do_command(event, cmd)
     
+    def do_identify(self, conn, event, nick, username, password):
+        user = User.get_by_user_id(username)
+        if user == None:
+            reply = "%s, username or password is wrong." % nick
+        else:
+            if user.login(event.source(), password):
+                reply = "%s, operation successful!" % nick
+            else:
+                reply = "%s, username or password is wrong." % nick
+        if event.target() in self.channels.keys():
+            conn.privmsg(event.target(), reply)
+        else:
+            conn.privmsg(nick, reply)
+    
     def do_command(self, event, cmd):
         nick = nm_to_n(event.source())
         conn = self.connection
@@ -50,7 +64,17 @@ class TwitterBot(SingleServerIRCBot):
         if command == "help":
             pass
         elif command == "identify":
-            pass
+            tokens = cmd.split()
+            if len(tokens) == 3:
+                username = tokens[1]
+                password = tokens[2]
+                self.do_identify(conn, event, nick, username, password)
+            else:
+                reply = "%s, Usage 'identify <username> <password>'"
+                if event.target() in self.channels.keys():
+                    conn.privmsg(event.target(), reply)
+                else:
+                    conn.privmsg(nick, reply)
         elif command == "history":
             pass
         elif command == "post":
