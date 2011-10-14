@@ -41,6 +41,7 @@ class _Section:
     
     def __setattr__(self,attr,value):
         self.options[attr] = value
+        self.config.config.set(self.name,attr,str(value))
         file = open(self.config.filename, 'w')
         self.config.config.write(file)
         file.close()
@@ -58,7 +59,7 @@ class Config(object):
         if filename != None:
             self.filename = filename
             self.config = ConfigParser()
-            self.config.read([self.filename])
+            self.config.read(self.filename)
     
     def get_section(self,name):
         if self.config.has_section(name):
