@@ -175,6 +175,14 @@ class Post(Base):
         return "<Post('%s')>" % self.status_id
     
     @staticmethod
+    def get_last(max = 10):
+        db = DBConn()
+        db_session = db.get_session()
+        return db_session, db_session.query(Post). \
+                order_by("status_id DESC").limit(max). \
+                from_self().order_by(Post.status_id).all()
+    
+    @staticmethod
     def delete(status_id, irc_id = None):
         db = DBConn()
         db_session = db.get_session()
