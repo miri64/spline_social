@@ -51,7 +51,7 @@ class TwitterBot(SingleServerIRCBot):
         try:
             if len(message) > 0:
                 status = self.posting_api.PostUpdate(event.source(), message)
-                reply = "%s, I posted the following update: %s" % (nick, status.text)
+                reply = "%s, I posted the following update: %s (id = %d)" % (nick, status.text, status.id)
             else:
                 reply = "%s, you want to post an empty string?" % nick
         except IdenticaError:
