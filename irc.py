@@ -1,0 +1,56 @@
+from multiprocessing import Process
+import time, config
+from ircbot import SingleServerIRCBot
+from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
+from db import User
+from apicalls import IdenticaError
+
+class TwitterBot(SingleServerIRCBot):
+    def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
+        SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
+        self.channel = channel
+        self.posting_api = posting_api
+        self.short_symbols = short_symbols
+        self.since_id = since_id
+
+    def on_nicknameinuse(self, conn, event):
+        conn.nick(conn.get_nickname() + "_")
+
+    def on_welcome(self, conn, event):
+        conn.join(self.channel)
+    
+    def on_disconnect(self, conn, event):
+        mention_grabber.terminate()
+
+    def on_privmsg(self, conn, event):
+        self.do_command(event, event.arguments()[0])
+
+    def on_pubmsg(self, conn, event):
+        if event.arguments()[0][0] in self.short_symbols and \
+                len(event.arguments()[0]) > 1:
+            cmd = event.arguments()[0][1:]
+        else:
+            args = event.arguments()[0].split(":", 1)
+            if len(args) == 1:
+                args = event.arguments()[0].split(",", 1)
+            if len(args) > 1 and \
+                    irc_lower(args[0]) == irc_lower(self.connection.get_nickname()):
+                cmd = args[1].strip()
+        self.do_command(event, cmd)
+    
+    def do_command(self, event, cmd):
+        nick = nm_to_n(event.source())
+        conn = self.connection
+        command = cmd.split()[0]
+        if command == "help":
+            pass
+        elif command == "identify":
+            pass
+        elif command == "history":
+            pass
+        elif command == "post":
+            pass
+        elif command == "reply":
+            pass
+        else:
+            conn.notice(nick, "Unknown command: " + cmd)
