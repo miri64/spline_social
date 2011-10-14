@@ -1,9 +1,9 @@
 from multiprocessing import Process
 from ircbot import SingleServerIRCBot
 from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
-from db import User
+from db import User, Post
 from apicalls import IdenticaError
-import sys, time, traceback, config
+import sys, time, traceback, config, re
 
 class TwitterBot(SingleServerIRCBot):
     def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
@@ -78,6 +78,40 @@ class TwitterBot(SingleServerIRCBot):
         else:
             conn.privmsg(nick, reply)
     
+    def do_delete(self, conn, event, nick, arg):
+        if arg == 'last':
+            session, posts = Post.get_last(1)
+            session.close()
+            if len(posts) > 0:
+                status_id = posts[0].status_id
+            else:
+                reply = "%s, I don't know any posts." % nick
+                if event.target() in self.channels.keys():
+                    conn.privmsg(event.target(), reply)
+                else:
+                    conn.privmsg(nick, reply)
+        elif re.match('^[0-9]+$', arg):
+            status_id = int(arg)
+        else:
+            self.reply_usage('remove {<post_id> | last}')
+            return
+        try:
+            self.posting_api.DestroyStatus(status_id)
+            reply = "%s, status %d deleted" % (nick,status_id)
+        except IdenticaError, e:
+            if str(e) == 'Status deleted':
+                reply = "%s, status %d deleted" % (nick,status_id)
+            else:
+                reply = "%s, %s" % (nick,e)
+        try:
+            Post.delete(status_id, event.source())
+        except Post.DoesNotExist:
+            reply = "%s, status %d not tracked" % (nick,status_id)
+        if event.target() in self.channels.keys():
+            conn.privmsg(event.target(), reply)
+        else:
+            conn.privmsg(nick, reply)
+    
     def reply_usage(self, conn, event, nick, message):
         reply = "%s, Usage: %s" % (nick, message)
         if event.target() in self.channels.keys():
@@ -107,6 +141,12 @@ class TwitterBot(SingleServerIRCBot):
                 self.do_post(conn, event, nick, tokens[1])
             else:
                 self.reply_usage('post <message>')
+        elif command == "delete":
+            tokens = cmd.split()
+            if len(tokens) == 2:
+                self.do_delete(conn, event, nick, tokens[1])
+            else:
+                self.reply_usage('remove {<post_id> | last}')
         elif command == "reply":
             pass
         else:
