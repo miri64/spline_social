@@ -124,6 +124,10 @@ class Post(Base):
             primary_key=True,
             unique=True
         )
+    created_at = sqlalchemy.Column(
+            sqlalchemy.DateTime, 
+            nullable=False
+        )
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
             sqlalchemy.ForeignKey(
@@ -139,11 +143,12 @@ class Post(Base):
             backref=sqlalchemy.orm.backref('posts')
         )
     
-    def __init__(self, status):
+    def __init__(self, status, created_at):
         if isinstance(status,int):
             self.status_id = status
         else:
             self.status_id = status.id
+        self.created_at = created_at
     
     def __repr__(self):
         return "<Post('%s')>" % self.status_id
