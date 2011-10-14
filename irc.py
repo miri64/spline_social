@@ -55,16 +55,15 @@ class TwitterBot(SingleServerIRCBot):
                 return
             self.do_command(event, cmd)
     
-    def do_post(self, conn, event, nick, message):
+    def do_post(self, conn, event, nick, message, in_reply_to_status_id = None):
         try:
             if len(message) > 0:
-                status = self.posting_api.PostUpdate(event.source(), message)
-                reply = "%s, I posted the following update: %s (id = %d)" % (nick, status.text, status.id)
+                status = self.posting_api.PostUpdate(event.source(), message, in_reply_to_status_id)
+                reply = "%s, I posted this status with id %d" % (nick, status.id)
             else:
                 reply = "%s, you want to post an empty string?" % nick
-        except IdenticaError:
-            reply = "%s, text must be less than or equal to " % nick + \
-                    "140 characters. Your text has length %d." % len(message)
+        except IdenticaError, e:
+            reply = "%s, %s", (nick, e)
         except User.NotLoggedIn:
             reply = "You must be identified to use the 'post' command"
         if event.target() in self.channels.keys():
@@ -120,6 +119,24 @@ class TwitterBot(SingleServerIRCBot):
         else:
             conn.privmsg(nick, reply)
     
+    def do_reply(self, conn, event, nick, recipient, message):
+        self.since_id_lock.acquire()
+        conf = Config() 
+        if recipient == 'last':
+            status_id = conf.identica.since_id
+        elif recipient.find('@') == 0:
+            pass            # to be done
+        elif re.match('^[0-9]+$', recipient):
+            status_id = int(recipient)
+        else:
+            self.reply_usage(conn, event, nick, 'reply {<post_id> | last} <message>')
+            return
+        self.since_id_lock.release()
+        status = self.posting_api.GetStatus(status_id)
+        if message.find('@'+status.user.screen_name) < 0:
+            message = '@'+status.user.screen_name+' '+message
+        self.do_post(conn, event, nick, message, status_id)
+    
     def reply_usage(self, conn, event, nick, message):
         reply = "%s, Usage: %s" % (nick, message)
         if event.target() in self.channels.keys():
@@ -156,7 +173,12 @@ class TwitterBot(SingleServerIRCBot):
             else:
                 self.reply_usage(conn, event, nick, 'remove {<post_id> | last}')
         elif command == "reply":
-            pass
+            tokens = cmd.split()
+            if len(tokens) > 2:
+                message = cmd[len("reply "+tokens[1])+1:].strip()
+                self.do_reply(conn, event, nick, tokens[1].strip(), message)
+            else:
+                self.reply_usage(conn, event, nick, 'reply {<post_id> | last} <message>')
         else:
             reply = "Unknown command: " + cmd
             if event.target() in self.channels.keys():
