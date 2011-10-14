@@ -1,4 +1,4 @@
-from multiprocessing import Process
+from multiprocessing import Process, Lock
 from ircbot import SingleServerIRCBot
 from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
 from db import User, Post
@@ -13,6 +13,7 @@ class TwitterBot(SingleServerIRCBot):
         self.posting_api = posting_api
         self.short_symbols = short_symbols
         self.since_id = since_id
+        self.since_id_lock = Lock()
         self.mention_grabber = None
 
     def on_nicknameinuse(self, conn, event):
@@ -21,7 +22,13 @@ class TwitterBot(SingleServerIRCBot):
     def on_welcome(self, conn, event):
         self.mention_grabber = Process(
                 target=TwitterBot.get_mentions, 
-                args=(conn, self.channel, self.posting_api, self.since_id)
+                args=(
+                        conn, 
+                        self.channel, 
+                        self.posting_api, 
+                        self.since_id,
+                        self.since_id_lock,
+                    )
             )
         self.mention_grabber.start()
         conn.join(self.channel)
@@ -158,18 +165,20 @@ class TwitterBot(SingleServerIRCBot):
                 conn.privmsg(nick, reply)
     
     @staticmethod
-    def get_mentions(conn, channel, posting_api, since_id):
+    def get_mentions(conn, channel, posting_api, since_id, since_id_lock):
         timestr = lambda sec: time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(sec)
             )
         while 1:
             time.sleep(10)
+            since_id_lock.acquire()
             statuses = posting_api.GetMentions(since_id)
             if len(statuses) > 0 and conn.socket != None:   # if there is a connection
                 since_id = max(statuses, key = lambda s: s.id).id
                 conf = Config()
                 conf.identica.since_id = since_id
+                since_id_lock.release()
                 for status in statuses:
                     mention = "@%s: %s (%s, %s)" % \
                             (status.user.screen_name,
@@ -178,6 +187,8 @@ class TwitterBot(SingleServerIRCBot):
                              "https://identi.ca/notice/%d" % status.id
                             )
                     conn.privmsg(channel, mention)
+            else:
+                since_id_lock.release()
     
     def start(self):
         try:
