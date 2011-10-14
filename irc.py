@@ -106,9 +106,7 @@ class TwitterBot(SingleServerIRCBot):
             )
         while 1:
             time.sleep(10)
-            print 'fetch_mentions'
             statuses = posting_api.GetMentions(since_id)
-            print 'got', len(statuses)
             if len(statuses) > 0 and conn.socket != None:   # if there is a connection
                 since_id = max([status.id for status in statuses])
                 conf.identica.since_id = since_id
