@@ -112,9 +112,9 @@ class User(Base):
         user = db_session.query(User). \
                 select_from(sqlalchemy.orm.join(User, Login)). \
                 filter(Login.irc_id == irc_id).first()
-        user.session = db_session
         if user == None:
             raise User.NotLoggedIn("You must identify to use this command.")
+        user.session = db_session
         return user
 
 class Post(Base):
