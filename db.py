@@ -191,9 +191,17 @@ class DBConn(object):
             type._the_instance = object.__new__(type)
         return type._the_instance
     
-    def __init__(self, name = None):
-        if name != None:
-            self.engine = sqlalchemy.create_engine('sqlite:///%s' % name)
+    def __init__(self, driver = None, username = None, password = None, name = None):
+        if driver != None and name != None:
+            if password == None:
+                password = ''
+            if username == None:
+                authentication = ''
+            else:
+                authentication = '%s:%s' % (username,password,)
+            self.engine = sqlalchemy.create_engine(
+                    '%s://%s/%s' % (driver, authentication, name,)
+                )
             Base.metadata.create_all(self.engine)
     
     def get_session(self):
