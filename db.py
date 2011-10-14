@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta
+import time
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -167,12 +168,15 @@ class Post(Base):
         def __repr__(self):
             return self.msg
     
-    def __init__(self, status, created_at, deleted = False, deleter = None):
-        if isinstance(status,int):
-            self.status_id = status
-        else:
-            self.status_id = status.id
-        self.created_at = created_at
+    def __init__(self, status, deleted = False, deleter = None):
+        self.status_id = status.id
+        t = time.localtime(
+                int(status.created_at_in_seconds)
+            )
+        self.created_at = datetime(
+                t.tm_year,t.tm_mon,t.tm_mday, 
+                t.tm_hour, t.tm_min, t.tm_sec
+            )
         self.deleted = deleted
         self.deleter = deleter
     
