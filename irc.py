@@ -100,7 +100,11 @@ class TwitterBot(SingleServerIRCBot):
         elif command == "reply":
             pass
         else:
-            conn.notice(nick, "Unknown command: " + cmd)
+            reply = "Unknown command: " + cmd
+            if event.target() in self.channels.keys():
+                conn.privmsg(event.target(), reply)
+            else:
+                conn.privmsg(nick, reply)
     
     @staticmethod
     def get_mentions(conn, channel, posting_api, since_id):
