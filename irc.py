@@ -107,17 +107,17 @@ class TwitterBot(SingleServerIRCBot):
             self.reply_usage('remove {<post_id> | last}')
             return
         try:
-            self.posting_api.DestroyStatus(status_id)
+            self.posting_api.DestroyStatus(event.source(), status_id)
             reply = "%s, status %d deleted" % (nick,status_id)
         except IdenticaError, e:
             if str(e) == 'Status deleted':
-                reply = "%s, status %d deleted" % (nick,status_id)
+                reply = "%s, status %d already deleted." % (nick,status_id)
             else:
                 reply = "%s, %s" % (nick,e)
-        try:
-            Post.delete(status_id, event.source())
         except Post.DoesNotExist:
-            reply = "%s, status %d not tracked" % (nick,status_id)
+            reply = "%s, status %d not tracked." % (nick,status_id)
+        except User.NotLoggedIn, e:
+            reply = "%s, %s" (nick, e)
         if event.target() in self.channels.keys():
             conn.privmsg(event.target(), reply)
         else:

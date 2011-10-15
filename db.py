@@ -198,10 +198,9 @@ class Post(Base):
         post = db_session.query(Post). \
                 filter(Post.status_id == status_id).first()
         if post != None:
-            if irc_id != None:
-                user = User.get_by_irc_id(irc_id)
-                user.session.close()
-                post.deleter = user
+            user = User.get_by_irc_id(irc_id)
+            user.session.close()
+            post.deleter = user
             post.deleted = True
             db_session.commit()
         else:

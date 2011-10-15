@@ -6,7 +6,7 @@ try:
 except:
   from cgi import parse_qsl
 
-from db import User
+from db import User, Post
 
 import oauth2 as oauth
 import twitter as identica
@@ -86,3 +86,7 @@ class IdenticaApi(identica.Api):
         status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
         user.add_post(status)
         return status
+    
+    def DestroyStatus(self, source, id, *args, **kwargs):
+        Post.delete(id, source)
+        return super(IdenticaApi,self).DestroyStatus(id, *args, **kwargs)
