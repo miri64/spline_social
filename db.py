@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 import time
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
@@ -191,6 +191,27 @@ class Post(Base):
                 filter(Post.deleted == False).
                 order_by("status_id DESC").limit(max). \
                 from_self().order_by(Post.status_id).all()
+    
+    @staticmethod
+    def get_by_user(user_id):
+        db = DBConn()
+        db_session = db.get_session()
+        return db_session, db_session.query(Post). \
+                select_from(sqlalchemy.orm.join(User, Post)). \
+                filter(
+                        User.ldap_id == user_id and 
+                        Post.deleted == False
+                    ).all()
+    
+    @staticmethod
+    def get_by_day(datestring):
+        date = date.strptime(datestring, "%Y-%m-%d")
+        db_session = db.get_session()
+        return db_session, db_session.query(Post). \
+                filter(
+                        Post.created_at.date == date and
+                        Post.deleted == False
+                    ).all()
     
     @staticmethod
     def delete(status_id, irc_id = None):
