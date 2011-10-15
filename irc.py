@@ -55,6 +55,41 @@ class TwitterBot(SingleServerIRCBot):
                 return
             self.do_command(event, cmd)
     
+    def _history_reply(self, conn, nick, posts):
+        if len(posts) == 0:
+            conn.privmsg(nick, "%s, no posts." % nick)
+            return
+        for post in posts:
+            username = post.user.ldap_id
+            try:
+                status = self.posting_api.GetStatus(post.status_id)
+            except IdenticaError, e:
+                if str(e) == 'Status deleted':
+                    Post.delete(post.status_id)
+                    continue
+                else:
+                    raise e
+            created_at = time.strftime(
+                "%Y-%m-%d %H:%M:%S",
+                time.localtime(status.created_at_in_seconds)
+            )
+            reply = "%s: %s (%s, id = %d)\r\n" % \
+                    (username, status.text, created_at, status.id)
+            conn.privmsg(nick, reply)
+    
+    def get_history(self, conn, event, nick, args):
+        if len(args) == 1:
+            session, posts = Post.get_last()
+            reply = self._history_reply(conn, nick, posts)
+            session.close()
+        elif len(args) == 2:
+            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
+                session, posts = Post.get_by_day(args[1])
+            else:
+                session, posts = Post.get_by_user(args[1])
+        reply = self._history_reply(conn, nick, posts)
+        session.close()
+    
     def do_post(self, conn, event, nick, message, in_reply_to_status_id = None):
         try:
             if len(message) > 0:
@@ -163,7 +198,8 @@ class TwitterBot(SingleServerIRCBot):
             else:
                 self.reply_usage(conn, event, nick, 'identify <username> <password>')
         elif command == "history":
-            pass
+            tokens = cmd.split()
+            self.get_history(conn, event, nick, tokens)
         elif command == "post":
             message = cmd[len("post "):].strip()
             if len(message) > 0:
