@@ -22,7 +22,7 @@ class User(Base):
             primary_key=True, 
             unique=True
         )
-    ldap_id = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    ldap_id = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
