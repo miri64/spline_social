@@ -2,6 +2,7 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 import ldap
 from db import DBConn, User, Post
 import config
+from multiprocessing import Process
 
 def add_user(ldap_username, ldap_password, irc_password, irc_username = None, gets_mail = False):
     conf = config.Config()
@@ -11,19 +12,16 @@ def add_user(ldap_username, ldap_password, irc_password, irc_username = None, ge
     else:
         l = ldap.initialize('ldap://%s:%d' % (conf.ldap.server, conf.ldap.port))
     l.protocol_version = ldap.VERSION3
-    try:
-        (res, msg) = l.simple_bind_s(ldap_username, ldap_password)
-        if res == 97:
-            l.unbind_s()
-            if irc_username != None:
-                user = User(user_id=irc_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
-            else:
-                user = User(user_id=ldap_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
-            db.add(user)
-            return True
+    (res, msg) = l.simple_bind_s(ldap_username, ldap_password)
+    if res == 97:
+        l.unbind_s()
+        if irc_username != None:
+            user = User(user_id=irc_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
         else:
-            return False
-    except ldap.INVALID_CREDENTIALS:
+            user = User(user_id=ldap_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
+        db.add(user)
+        return True
+    else:
         return False
 
 def get_tweets(username = None):
@@ -43,7 +41,9 @@ def get_tweets(username = None):
 def initialize():
     conf = config.Config()
     server = SimpleXMLRPCServer(('localhost', conf.rpc.port))
+    print conf.rpc.port
     server.register_function(add_user)
     server.register_function(get_tweets)
-    
-    return server
+    p = Process(target=server.serve_forever)
+    p.start()
+    return p
