@@ -43,8 +43,8 @@ class User(Base):
         
     def __setattr__(self, attr, value):
         if attr != 'password':
-            if attr == 'banned' or attr == 'gets_mail':
-                if value == 0 or value == None or value == False:
+            if attr in ['banned', 'gets_mail']:
+                if value in [0, None, False]:
                     self.__dict__[attr] = False
                 else:
                     self.__dict__[attr] = True
