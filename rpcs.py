@@ -1,10 +1,11 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 import ldap
-from db import User, Post
+from db import DBConn, User, Post
 import config
 
 def add_user(ldap_username, ldap_password, irc_password, irc_username = None, gets_mail = False):
     conf = config.Config()
+    db = DBConn()
     if conf.ldap.port == None:
         l = ldap.initialize('ldap://%s' % conf.ldap.server)
     else:
@@ -15,9 +16,10 @@ def add_user(ldap_username, ldap_password, irc_password, irc_username = None, ge
         if res == 97:
             l.unbind_s()
             if irc_username != None:
-                User(user_id=irc_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
+                user = User(user_id=irc_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
             else:
-                User(user_id=ldap_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
+                user = User(user_id=ldap_username,password=irc_password,ldap_id=ldap_username,gets_mail=gets_mail)
+            db.add(user)
             return True
         else:
             return False
