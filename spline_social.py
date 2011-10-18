@@ -2,6 +2,7 @@
 
 import apicalls, config, irc
 import sys
+import rpcs
 from db import DBConn, User
 
 CONFIG_FILE = ".spline_config"
@@ -65,6 +66,8 @@ def main(argv):
     
     user = User('martin','authmill','foobar')
     db.add(user)
+    
+    rpc_server = rpcs.initialize()
     
     bot = irc.TwitterBot(
             api, 
