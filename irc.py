@@ -14,6 +14,115 @@ command_hlp = {
     "delete": {'usage': 'remove {<post_id> | last}', 'text': 'Remove last post or the post with the id <post_id>'},
     "reply": {'usage': 'reply {<post_id> | last} <message>', 'text': 'reply to last post or the post with the id <post_id>'}
 }
+class CommandHandler:
+    class UsageError(Exception):
+        def __init__(self, command):
+            self.command = command
+        
+        def __repr__(self):
+            return self.command
+    
+    command_help = {
+            'help': {
+                    'usage': 'help [<command >]', 
+                    'text': 'Show help.'
+                },
+            'identify': {
+                    'usage': 'identify <username> <password>', 
+                    'text': 'Identify yourself.'
+                },
+            'history': {
+                    'usage': 'history [{YYYY-MM-DD | <username>}]', 
+                    'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (spline nickname), or the last posted post (no parameter).'
+                },
+            'post': {
+                    'usage': 'post <message>', 
+                    'text': 'Post a message to identi.ca.'
+                },
+            'delete': {
+                    'usage': 'remove {<post_id> | last}', 
+                    'text': 'Remove last post or the post with the id <post_id>.'
+                },
+            'reply': {
+                    'usage': 'reply {<post_id> | last} <message>', 
+                    'text': 'reply to last post or the post with the id <post_id>.'
+                }
+        }
+    
+    def __init__(self, bot, conn, event):
+        self.bot = bot
+        self.conn = conn
+        self.event = event
+        
+    def _get_nick(self):
+        return nm_to_n(self.event.source())
+    
+    def _do_reply(self, reply):
+        reply = reply.strip()
+        channel = self.event.target()
+        if channel in self.bot.channels.keys():
+            reply = reply[0].lower() + reply[1:]
+            reply = "%s: %s" % (self._get_nick(), reply)
+            self.conn.privmsg(channel, reply)
+        else:
+            self.conn.privmsg(self._get_nick(), reply)
+    
+    def _do_usage_reply(self, command):
+        reply = "Usage: %s" % CommandHandler.command_help[command]['usage']
+        self._do_reply(reply)
+    
+    def do(self, command_str):
+        command_f = {
+                'help': self.do_help,
+                'identify': self.do_identify,
+                'history': self.do_history,
+                'post': self.do_post,
+                'delete': self.do_delete,
+                'reply': self.do_reply
+            }
+        args = command_str.split()
+        command = args[0].strip()
+        try:
+            if command == 'post':
+                message = command_str[len('post '):].strip()
+                command_f[command](message)
+            elif command == 'reply':
+                if len(args) < 2:
+                    raise CommandHandler.UsageError(command)
+                argument = args[1].strip()
+                message = command_str[len('reply '+argument)+1:].strip()
+                command_f[command](argument, message)
+            else:
+                command_f[command](*args[1:])
+            return
+        except KeyError:
+            reply = "Unknown command: " + cmd
+        except CommandHandler.UsageError, e:
+            reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
+        self._do_reply(reply)
+    
+    def do_help(self, command = None):
+        if command == None:
+            reply = 'Available commands: '+', '.join(CommandHandler.command_help.keys())
+        else:
+            help = CommandHandler.command_help[command]
+            reply = '%s (%s)' % (help['usage'], help['text'])
+        self._do_reply(reply)
+    
+    def do_identify(self, username = None, password = None):
+        pass
+    
+    def do_history(self, argument):
+        pass
+    
+    def do_post(self, message):
+        pass
+    
+    def do_delete(self, argument):
+        pass
+    
+    def do_reply(self, argument, message):
+        pass
 
 class TwitterBot(SingleServerIRCBot):
     def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
@@ -63,13 +172,6 @@ class TwitterBot(SingleServerIRCBot):
             else:
                 return
             self.do_command(event, cmd)
-    
-    def generate_help_text(self, args):
-        if len(args) == 0:
-            return 'Available commands: '+' '.join(command_hlp.keys())
-        else:
-            help = command_hlp[args[0]]
-            return 'Usage: %s (%s)' % (help['usage'], help['text'])
     
     def _history_reply(self, conn, nick, posts):
         if len(posts) == 0:
@@ -205,8 +307,11 @@ class TwitterBot(SingleServerIRCBot):
         tokens = cmd.split()
         command = tokens[0]
         if command == "help":
-            reply = self.generate_help_text(tokens[1:])
-            conn.privmsg(nick, reply)
+            p = Process(
+                    target=CommandHandler(self,conn,event).do, 
+                    args=(cmd,)
+                )
+            p.start()
             return
         elif command == "identify":
             if len(tokens) == 3:
