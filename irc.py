@@ -6,6 +6,15 @@ from apicalls import IdenticaError
 from config import Config
 import sys, time, traceback, config, re
 
+command_hlp = {
+    'help': {'usage': 'help [<command >]', 'text': 'Show help.'},
+    'identify': {'usage': 'identify <username> <password>', 'text': 'Identify yourself.'},
+    "history": {'usage': 'history [{YYYY-MM-DD | <username>}]', 'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (spline nickname), or the last posted post (no parameter).'},
+    "post": {'usage': 'post <message>', 'text': 'Post a message to identi.ca'},
+    "delete": {'usage': 'remove {<post_id> | last}', 'text': 'Remove last post or the post with the id <post_id>'},
+    "reply": {'usage': 'reply {<post_id> | last} <message>', 'text': 'reply to last post or the post with the id <post_id>'}
+}
+
 class TwitterBot(SingleServerIRCBot):
     def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
@@ -54,6 +63,13 @@ class TwitterBot(SingleServerIRCBot):
             else:
                 return
             self.do_command(event, cmd)
+    
+    def generate_help_text(self, args):
+        if len(args) == 0:
+            return 'Available commands: '+' '.join(command_hlp.keys())
+        else:
+            help = command_hlp[args[0]]
+            return 'Usage: %s (%s)' % (help['usage'], help['text'])
     
     def _history_reply(self, conn, nick, posts):
         if len(posts) == 0:
