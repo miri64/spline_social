@@ -144,7 +144,7 @@ class Post(Base):
             sqlalchemy.ForeignKey(
                     'users.user_id', 
                     onupdate="CASCADE", 
-                    ondelete="SET NULL"
+                    ondelete="NO ACTION"
                 ),
             default=None
         )
@@ -221,14 +221,32 @@ class Post(Base):
                     ).all()
     
     @staticmethod
-    def delete(status_id, irc_id = None):
+    def mark_deleted(status_id, exception):
+        try:
+            if exception.args[0].find('Status deleted') < 0:
+                return
+        except AttributeError:
+            return
         db = DBConn()
         db_session = db.get_session()
         post = db_session.query(Post). \
                 filter(Post.status_id == status_id).first()
         if post != None:
-            user = User.get_by_irc_id(irc_id)
-            user.session.close()
+            post.deleter_id = 'By API'
+            post.deleted = True
+            db_session.commit()
+        else:
+            raise Post.DoesNotExist("Post %d not tracked" % status_id)
+        db_session.close()
+    
+    @staticmethod
+    def delete(status_id, irc_id):
+        db = DBConn()
+        user = User.get_by_irc_id(irc_id)
+        db_session = user.session
+        post = db_session.query(Post). \
+                filter(Post.status_id == status_id).first()
+        if post != None:
             post.deleter = user
             post.deleted = True
             db_session.commit()

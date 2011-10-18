@@ -33,7 +33,7 @@ class CommandHandler:
                 },
             'history': {
                     'usage': 'history [{YYYY-MM-DD | <username>}]', 
-                    'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (spline nickname), or the last posted post (no parameter).'
+                    'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (spline nickname), or the last 10 posted posts (no parameter).'
                 },
             'post': {
                     'usage': 'post <message>', 
@@ -65,7 +65,10 @@ class CommandHandler:
             reply = "%s: %s" % (self._get_nick(), reply)
             self.conn.privmsg(channel, reply)
         else:
-            self.conn.privmsg(self._get_nick(), reply)
+            self._do_private_reply(reply)
+    
+    def _do_private_reply(self, reply):
+        self.conn.privmsg(self._get_nick(), reply)
     
     def _do_usage_reply(self, command):
         reply = "Usage: %s" % CommandHandler.command_help[command]['usage']
@@ -110,10 +113,52 @@ class CommandHandler:
         self._do_reply(reply)
     
     def do_identify(self, username = None, password = None):
-        pass
+        if username == None or password == None:
+            raise CommandHandler.UsageError('identify')
+        nick = self._get_nick()
+        
+        user = User.get_by_user_id(username)
+        
+        login_error_reply = "Username or password is wrong."
+        if user == None:
+            reply = login_error_reply
+        else:
+            if user.login(self.event.source(), password):
+                reply = "Operation successful!"
+            else:
+                reply = login_error_reply
+        self._do_reply(reply)
     
-    def do_history(self, argument):
-        pass
+    def _generate_history_replies(self, posts):
+        shown_posts = 0
+        for post in posts:
+            username = post.user.ldap_id
+            try:
+                status = self.bot.posting_api.GetStatus(post.status_id)
+                created_at = datetime.strftime(post.created_at)
+                reply = "%s: %s (%s, id = %d)\r\n" % \
+                        (username, status.text, created_at, status.id)
+                self._do_private_reply(reply)
+                shown_posts += 1
+            except IdenticaError, e:
+                if str(e).find('Status deleted') >= 0:
+                    Post.mark_deleted(post.status_id, e)
+                    continue
+                else:
+                    raise e
+        if shown_posts == 0:
+            self._do_private_reply("No posts.")
+    
+    def do_history(self, argument = None):
+        if argument == None:
+            session, posts = Post.get_last()
+        else:
+            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
+                session, posts = Post.get_by_day(args[1])
+            else:
+                session, posts = Post.get_by_user(args[1])
+        self._generate_history_replies(posts)
+        session.close()
     
     def do_post(self, message):
         pass
@@ -173,41 +218,6 @@ class TwitterBot(SingleServerIRCBot):
                 return
             self.do_command(event, cmd)
     
-    def _history_reply(self, conn, nick, posts):
-        if len(posts) == 0:
-            conn.privmsg(nick, "%s, no posts." % nick)
-            return
-        for post in posts:
-            username = post.user.ldap_id
-            try:
-                status = self.posting_api.GetStatus(post.status_id)
-            except IdenticaError, e:
-                if str(e) == 'Status deleted':
-                    Post.delete(post.status_id)
-                    continue
-                else:
-                    raise e
-            created_at = time.strftime(
-                "%Y-%m-%d %H:%M:%S",
-                time.localtime(status.created_at_in_seconds)
-            )
-            reply = "%s: %s (%s, id = %d)\r\n" % \
-                    (username, status.text, created_at, status.id)
-            conn.privmsg(nick, reply)
-    
-    def get_history(self, conn, event, nick, args):
-        if len(args) == 1:
-            session, posts = Post.get_last()
-            reply = self._history_reply(conn, nick, posts)
-            session.close()
-        elif len(args) > 1:
-            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
-                session, posts = Post.get_by_day(args[1])
-            else:
-                session, posts = Post.get_by_user(args[1])
-        reply = self._history_reply(conn, nick, posts)
-        session.close()
-    
     def do_post(self, conn, event, nick, message, in_reply_to_status_id = None):
         try:
             if len(message) > 0:
@@ -223,20 +233,6 @@ class TwitterBot(SingleServerIRCBot):
                 reply = "%s, %s", (nick, e)
         except User.NotLoggedIn:
             reply = "You must be identified to use the 'post' command"
-        if event.target() in self.channels.keys():
-            conn.privmsg(event.target(), reply)
-        else:
-            conn.privmsg(nick, reply)
-    
-    def do_identify(self, conn, event, nick, username, password):
-        user = User.get_by_user_id(username)
-        if user == None:
-            reply = "%s, username or password is wrong." % nick
-        else:
-            if user.login(event.source(), password):
-                reply = "%s, operation successful!" % nick
-            else:
-                reply = "%s, username or password is wrong." % nick
         if event.target() in self.channels.keys():
             conn.privmsg(event.target(), reply)
         else:
@@ -294,33 +290,16 @@ class TwitterBot(SingleServerIRCBot):
             message = '@'+status.user.screen_name+' '+message
         self.do_post(conn, event, nick, message, status_id)
     
-    def reply_usage(self, conn, event, nick, message):
-        reply = "%s, Usage: %s" % (nick, message)
-        if event.target() in self.channels.keys():
-            conn.privmsg(event.target(), reply)
-        else:
-            conn.privmsg(nick, reply)
-    
     def do_command(self, event, cmd):
-        nick = nm_to_n(event.source())
         conn = self.connection
         tokens = cmd.split()
         command = tokens[0]
-        if command == "help":
+        if command == 'help' or command == 'identify' or command == 'history':
             p = Process(
                     target=CommandHandler(self,conn,event).do, 
                     args=(cmd,)
                 )
             p.start()
-            return
-        elif command == "identify":
-            if len(tokens) == 3:
-                username = tokens[1]
-                password = tokens[2]
-                self.do_identify(conn, event, nick, username, password)
-                return
-        elif command == "history":
-            self.get_history(conn, event, nick, tokens)
             return
         elif command == "post":
             message = cmd[len("post "):].strip()
