@@ -184,6 +184,13 @@ class Post(Base):
         return "<Post('%s')>" % self.status_id
     
     @staticmethod
+    def get_all():
+        db = DBConn()
+        db_session = db.get_session()
+        return db_session, db_session.query(Post). \
+                filter(Post.deleted == False).all()
+    
+    @staticmethod
     def get_last(max = 10):
         db = DBConn()
         db_session = db.get_session()
