@@ -188,7 +188,7 @@ class Post(Base):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
-                filter(Post.deleted == False).
+                filter(Post.deleted == False). \
                 order_by("status_id DESC").limit(max). \
                 from_self().order_by(Post.status_id).all()
     
