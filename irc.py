@@ -81,7 +81,7 @@ class CommandHandler:
                 'history': self.do_history,
                 'post': self.do_post,
                 'delete': self.do_delete,
-                'reply': self.do_reply
+                'reply': self.do_reply,
             }
         args = command_str.split()
         command = args[0].strip()
@@ -160,8 +160,26 @@ class CommandHandler:
         self._generate_history_replies(posts)
         session.close()
     
-    def do_post(self, message):
-        pass
+    def do_post(self, message, in_reply_to_status_id = None):
+        try:
+            if len(message) > 0:
+                status = self.bot.posting_api.PostUpdate(
+                        self.event.source(), 
+                        message, 
+                        in_reply_to_status_id
+                    )
+                reply = "Posted this status with id %d" % status.id
+            else:
+                reply = "You want to post an empty string? I don't think so."
+        except IdenticaError, e:
+            if str(e).find("Text must be less than or equal to") >= 0:
+                reply = "Text must be less than or equal to " + \
+                        "140 characters. Your text has length %d." % len(message)
+            else:
+                reply = "%s" % e
+        except User.NotLoggedIn:
+            reply = "You must be identified to use the 'post' command"
+        self._do_reply(reply)
     
     def do_delete(self, argument):
         pass
@@ -291,21 +309,17 @@ class TwitterBot(SingleServerIRCBot):
         self.do_post(conn, event, nick, message, status_id)
     
     def do_command(self, event, cmd):
+        nick = nm_to_n(event.source())
         conn = self.connection
         tokens = cmd.split()
         command = tokens[0]
-        if command == 'help' or command == 'identify' or command == 'history':
+        if command == 'help' or command == 'identify' or command == 'history' or command == 'post':
             p = Process(
                     target=CommandHandler(self,conn,event).do, 
                     args=(cmd,)
                 )
             p.start()
             return
-        elif command == "post":
-            message = cmd[len("post "):].strip()
-            if len(message) > 0:
-                self.do_post(conn, event, nick, message)
-                return
         elif command == "delete":
             if len(tokens) == 2:
                 self.do_delete(conn, event, nick, tokens[1])
