@@ -22,7 +22,7 @@ class User(Base):
             primary_key=True, 
             unique=True
         )
-    ldap_id = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    ldap_id = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
@@ -43,8 +43,8 @@ class User(Base):
         
     def __setattr__(self, attr, value):
         if attr != 'password':
-            if attr == 'banned' or attr == 'gets_mail':
-                if value == 0 or value == None or value == False:
+            if attr in ['banned', 'gets_mail']:
+                if value in [0, None, False]:
                     self.__dict__[attr] = False
                 else:
                     self.__dict__[attr] = True
@@ -144,7 +144,7 @@ class Post(Base):
             sqlalchemy.ForeignKey(
                     'users.user_id', 
                     onupdate="CASCADE", 
-                    ondelete="SET NULL"
+                    ondelete="NO ACTION"
                 ),
             default=None
         )
@@ -184,11 +184,18 @@ class Post(Base):
         return "<Post('%s')>" % self.status_id
     
     @staticmethod
+    def get_all():
+        db = DBConn()
+        db_session = db.get_session()
+        return db_session, db_session.query(Post). \
+                filter(Post.deleted == False).all()
+    
+    @staticmethod
     def get_last(max = 10):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
-                filter(Post.deleted == False).
+                filter(Post.deleted == False). \
                 order_by("status_id DESC").limit(max). \
                 from_self().order_by(Post.status_id).all()
     
@@ -214,14 +221,32 @@ class Post(Base):
                     ).all()
     
     @staticmethod
-    def delete(status_id, irc_id = None):
+    def mark_deleted(status_id, exception):
+        try:
+            if exception.args[0].find('Status deleted') < 0:
+                return
+        except AttributeError:
+            return
         db = DBConn()
         db_session = db.get_session()
         post = db_session.query(Post). \
                 filter(Post.status_id == status_id).first()
         if post != None:
-            user = User.get_by_irc_id(irc_id)
-            user.session.close()
+            post.deleter_id = 'By API'
+            post.deleted = True
+            db_session.commit()
+        else:
+            raise Post.DoesNotExist("Post %d not tracked" % status_id)
+        db_session.close()
+    
+    @staticmethod
+    def delete(status_id, irc_id):
+        db = DBConn()
+        user = User.get_by_irc_id(irc_id)
+        db_session = user.session
+        post = db_session.query(Post). \
+                filter(Post.status_id == status_id).first()
+        if post != None:
             post.deleter = user
             post.deleted = True
             db_session.commit()

@@ -5,6 +5,12 @@ DEFAULTS = {
         'IRC': {
             'port': 6667,
         },
+        'LDAP': {
+            'port': None,
+        },
+        'RPC': {
+            'port': 9000,
+        },
         'Bot': {
             'bot_nick': 'spline_social',
             'since_id': '',
@@ -65,14 +71,20 @@ class Config(object):
         if self.config.has_section(name):
             return _Section(name, self.config.items(name), self)
         else:
-            return None
+            return _Section(name, [], self)
     
     def __getattr__(self, attr):
         if attr == 'irc':
             return self.get_section('IRC')
+        elif attr == 'ldap':
+            return self.get_section('LDAP')
+        elif attr == 'rpc':
+            return self.get_section('RPC')
         elif attr == 'bot':
             return self.get_section('Bot')
         elif attr == 'db':
             return self.get_section('Database')
         elif attr == 'identica':
             return self.get_section('Identi.ca')
+        else:
+            raise AttributeError('No section \'%s\' in Config.' % attr)

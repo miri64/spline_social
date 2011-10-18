@@ -6,6 +6,225 @@ from apicalls import IdenticaError
 from config import Config
 import sys, time, traceback, config, re
 
+class CommandHandler:
+    class UsageError(Exception):
+        def __init__(self, command):
+            self.command = command
+        
+        def __repr__(self):
+            return self.command
+    
+    command_help = {
+            'help': {
+                    'usage': 'help [<command >]', 
+                    'text': 'Show help.'
+                },
+            'identify': {
+                    'usage': 'identify <username> <password>', 
+                    'text': 'Identify yourself.'
+                },
+            'history': {
+                    'usage': 'history [{YYYY-MM-DD | <username>}]', 
+                    'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (spline nickname), or the last 10 posted posts (no parameter).'
+                },
+            'post': {
+                    'usage': 'post <message>', 
+                    'text': 'Post a message to identi.ca.'
+                },
+            'delete': {
+                    'usage': 'remove {<post_id> | last}', 
+                    'text': 'Remove last post or the post with the id <post_id>.'
+                },
+            'reply': {
+                    'usage': 'reply {<post_id> | last} <message>', 
+                    'text': 'reply to last post or the post with the id <post_id>.'
+                }
+        }
+    
+    def __init__(self, bot, conn, event):
+        self.bot = bot
+        self.conn = conn
+        self.event = event
+        
+    def _get_nick(self):
+        return nm_to_n(self.event.source())
+    
+    def _do_reply(self, reply):
+        reply = reply.strip()
+        channel = self.event.target()
+        if channel in self.bot.channels.keys():
+            reply = reply[0].lower() + reply[1:]
+            reply = "%s: %s" % (self._get_nick(), reply)
+            self.conn.privmsg(channel, reply)
+        else:
+            self._do_private_reply(reply)
+    
+    def _do_private_reply(self, reply):
+        self.conn.privmsg(self._get_nick(), reply)
+    
+    def _do_usage_reply(self, command):
+        reply = "Usage: %s" % CommandHandler.command_help[command]['usage']
+        self._do_reply(reply)
+    
+    def do(self, command_str):
+        command_f = {
+                'help': self.do_help,
+                'identify': self.do_identify,
+                'history': self.do_history,
+                'post': self.do_post,
+                'delete': self.do_delete,
+                'reply': self.do_reply,
+            }
+        args = command_str.split()
+        command = args[0].strip()
+        try:
+            if command == 'post':
+                message = command_str[len('post '):].strip()
+                command_f[command](message)
+            elif command == 'reply':
+                if len(args) < 2:
+                    raise CommandHandler.UsageError(command)
+                recipient = args[1].strip()
+                message = command_str[len('reply '+recipient)+1:].strip()
+                command_f[command](recipient, message)
+            else:
+                try:
+                    command_f[command](*args[1:])
+                except TypeError:
+                    raise CommandHandler.UsageError(command)
+            return
+        except KeyError:
+            reply = "Unknown command: " + cmd
+        except CommandHandler.UsageError, e:
+            reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
+        self._do_reply(reply)
+    
+    def do_help(self, command = None):
+        if command == None:
+            reply = 'Available commands: '+', '.join(CommandHandler.command_help.keys())
+        else:
+            help = CommandHandler.command_help[command]
+            reply = '%s (%s)' % (help['usage'], help['text'])
+        self._do_reply(reply)
+    
+    def do_identify(self, username, password):
+        nick = self._get_nick()
+        
+        user = User.get_by_user_id(username)
+        
+        login_error_reply = "Username or password is wrong."
+        if user == None:
+            reply = login_error_reply
+        else:
+            if user.login(self.event.source(), password):
+                reply = "Operation successful!"
+            else:
+                reply = login_error_reply
+        self._do_reply(reply)
+    
+    def _generate_history_replies(self, posts):
+        shown_posts = 0
+        for post in posts:
+            username = post.user.ldap_id
+            try:
+                status = self.bot.posting_api.GetStatus(post.status_id)
+                created_at = datetime.strftime(post.created_at)
+                reply = "%s: %s (%s, id = %d)\r\n" % \
+                        (username, status.text, created_at, status.id)
+                self._do_private_reply(reply)
+                shown_posts += 1
+            except IdenticaError, e:
+                if str(e).find('Status deleted') >= 0:
+                    Post.mark_deleted(post.status_id, e)
+                    continue
+                else:
+                    raise e
+        if shown_posts == 0:
+            self._do_private_reply("No posts.")
+    
+    def do_history(self, argument = None):
+        if argument == None:
+            session, posts = Post.get_last()
+        else:
+            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
+                session, posts = Post.get_by_day(args[1])
+            else:
+                session, posts = Post.get_by_user(args[1])
+        self._generate_history_replies(posts)
+        session.close()
+    
+    def do_post(self, message, in_reply_to_status_id = None):
+        try:
+            if len(message) > 0:
+                status = self.bot.posting_api.PostUpdate(
+                        self.event.source(), 
+                        message, 
+                        in_reply_to_status_id
+                    )
+                reply = "Posted this status with id %d" % status.id
+            else:
+                reply = "You want to post an empty string? I don't think so."
+        except IdenticaError, e:
+            if str(e).find("Text must be less than or equal to") >= 0:
+                reply = "Text must be less than or equal to " + \
+                        "140 characters. Your text has length %d." % len(message)
+            else:
+                reply = "%s" % e
+        except User.NotLoggedIn:
+            reply = "You must be identified to use the 'post' command"
+        self._do_reply(reply)
+    
+    def do_delete(self, argument):
+        if argument == 'last':
+            session, posts = Post.get_last(1)
+            session.close()
+            if len(posts) > 0:
+                status_id = posts[0].status_id
+            else:
+                reply = "%s, I don't know any posts." % nick
+                if event.target() in self.channels.keys():
+                    conn.privmsg(event.target(), reply)
+                else:
+                    conn.privmsg(nick, reply)
+        elif re.match('^[0-9]+$', argument):
+            status_id = int(argument)
+        else:
+            raise CommandHandler.UsageError('remove')
+        try:
+            self.bot.posting_api.DestroyStatus(
+                    self.event.source(), 
+                    status_id
+                )
+            reply = "%s, status %d deleted" % status_id
+        except IdenticaError, e:
+            if str(e).find('Status deleted') >= 0:
+                reply = "Status %d already deleted." % status_id
+                Post.mark_deleted(status_id)
+            else:
+                reply = str(e)
+        except Post.DoesNotExist:
+            reply = "Status %d not tracked." % status_id
+        except User.NotLoggedIn, e:
+            reply = str(e)
+        self._do_reply(reply)
+    
+    def do_reply(self, recipient, message):
+        self.bot.since_id_lock.acquire()
+        conf = Config() 
+        if recipient == 'last':
+            status_id = conf.identica.since_id
+        elif recipient.find('@') == 0:
+            reply = "Direct user answer is not implemented yet."
+            self._do_reply(reply)
+            return
+        elif re.match('^[0-9]+$', recipient):
+            status_id = int(recipient)
+        else:
+            raise CommandHandler.UsageError('reply')
+        self.bot.since_id_lock.release()
+        status = self.bot.posting_api.GetStatus(status_id)
+        self.do_post(message, status_id)
+
 class TwitterBot(SingleServerIRCBot):
     def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
@@ -55,177 +274,12 @@ class TwitterBot(SingleServerIRCBot):
                 return
             self.do_command(event, cmd)
     
-    def _history_reply(self, conn, nick, posts):
-        if len(posts) == 0:
-            conn.privmsg(nick, "%s, no posts." % nick)
-            return
-        for post in posts:
-            username = post.user.ldap_id
-            try:
-                status = self.posting_api.GetStatus(post.status_id)
-            except IdenticaError, e:
-                if str(e) == 'Status deleted':
-                    Post.delete(post.status_id)
-                    continue
-                else:
-                    raise e
-            created_at = time.strftime(
-                "%Y-%m-%d %H:%M:%S",
-                time.localtime(status.created_at_in_seconds)
-            )
-            reply = "%s: %s (%s, id = %d)\r\n" % \
-                    (username, status.text, created_at, status.id)
-            conn.privmsg(nick, reply)
-    
-    def get_history(self, conn, event, nick, args):
-        if len(args) == 1:
-            session, posts = Post.get_last()
-            reply = self._history_reply(conn, nick, posts)
-            session.close()
-        elif len(args) == 2:
-            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
-                session, posts = Post.get_by_day(args[1])
-            else:
-                session, posts = Post.get_by_user(args[1])
-        reply = self._history_reply(conn, nick, posts)
-        session.close()
-    
-    def do_post(self, conn, event, nick, message, in_reply_to_status_id = None):
-        try:
-            if len(message) > 0:
-                status = self.posting_api.PostUpdate(event.source(), message, in_reply_to_status_id)
-                reply = "%s, I posted this status with id %d" % (nick, status.id)
-            else:
-                reply = "%s, you want to post an empty string?" % nick
-        except IdenticaError, e:
-            if str(e).find("Text must be less than or equal to") == 0:
-                reply = "%s, text must be less than or equal to " % nick + \
-                        "140 characters. Your text has length %d." % len(message)
-            else:
-                reply = "%s, %s", (nick, e)
-        except User.NotLoggedIn:
-            reply = "You must be identified to use the 'post' command"
-        if event.target() in self.channels.keys():
-            conn.privmsg(event.target(), reply)
-        else:
-            conn.privmsg(nick, reply)
-    
-    def do_identify(self, conn, event, nick, username, password):
-        user = User.get_by_user_id(username)
-        if user == None:
-            reply = "%s, username or password is wrong." % nick
-        else:
-            if user.login(event.source(), password):
-                reply = "%s, operation successful!" % nick
-            else:
-                reply = "%s, username or password is wrong." % nick
-        if event.target() in self.channels.keys():
-            conn.privmsg(event.target(), reply)
-        else:
-            conn.privmsg(nick, reply)
-    
-    def do_delete(self, conn, event, nick, arg):
-        if arg == 'last':
-            session, posts = Post.get_last(1)
-            session.close()
-            if len(posts) > 0:
-                status_id = posts[0].status_id
-            else:
-                reply = "%s, I don't know any posts." % nick
-                if event.target() in self.channels.keys():
-                    conn.privmsg(event.target(), reply)
-                else:
-                    conn.privmsg(nick, reply)
-        elif re.match('^[0-9]+$', arg):
-            status_id = int(arg)
-        else:
-            self.reply_usage('remove {<post_id> | last}')
-            return
-        try:
-            self.posting_api.DestroyStatus(event.source(), status_id)
-            reply = "%s, status %d deleted" % (nick,status_id)
-        except IdenticaError, e:
-            if str(e) == 'Status deleted':
-                reply = "%s, status %d already deleted." % (nick,status_id)
-            else:
-                reply = "%s, %s" % (nick,e)
-        except Post.DoesNotExist:
-            reply = "%s, status %d not tracked." % (nick,status_id)
-        except User.NotLoggedIn, e:
-            reply = "%s, %s" (nick, e)
-        if event.target() in self.channels.keys():
-            conn.privmsg(event.target(), reply)
-        else:
-            conn.privmsg(nick, reply)
-    
-    def do_reply(self, conn, event, nick, recipient, message):
-        self.since_id_lock.acquire()
-        conf = Config() 
-        if recipient == 'last':
-            status_id = conf.identica.since_id
-        elif recipient.find('@') == 0:
-            pass            # to be done
-        elif re.match('^[0-9]+$', recipient):
-            status_id = int(recipient)
-        else:
-            self.reply_usage(conn, event, nick, 'reply {<post_id> | last} <message>')
-            return
-        self.since_id_lock.release()
-        status = self.posting_api.GetStatus(status_id)
-        if message.find('@'+status.user.screen_name) < 0:
-            message = '@'+status.user.screen_name+' '+message
-        self.do_post(conn, event, nick, message, status_id)
-    
-    def reply_usage(self, conn, event, nick, message):
-        reply = "%s, Usage: %s" % (nick, message)
-        if event.target() in self.channels.keys():
-            conn.privmsg(event.target(), reply)
-        else:
-            conn.privmsg(nick, reply)
-    
     def do_command(self, event, cmd):
-        nick = nm_to_n(event.source())
-        conn = self.connection
-        command = cmd.split()[0]
-        if command == "help":
-            pass
-        elif command == "identify":
-            tokens = cmd.split()
-            if len(tokens) == 3:
-                username = tokens[1]
-                password = tokens[2]
-                self.do_identify(conn, event, nick, username, password)
-            else:
-                self.reply_usage(conn, event, nick, 'identify <username> <password>')
-        elif command == "history":
-            tokens = cmd.split()
-            self.get_history(conn, event, nick, tokens)
-        elif command == "post":
-            message = cmd[len("post "):].strip()
-            if len(message) > 0:
-                self.do_post(conn, event, nick, message)
-            else:
-                self.reply_usage(conn, event, nick, 'post <message>')
-        elif command == "delete":
-            tokens = cmd.split()
-            if len(tokens) == 2:
-                self.do_delete(conn, event, nick, tokens[1])
-            else:
-                self.reply_usage(conn, event, nick, 'remove {<post_id> | last}')
-        elif command == "reply":
-            tokens = cmd.split()
-            if len(tokens) > 2:
-                message = cmd[len("reply "+tokens[1])+1:].strip()
-                self.do_reply(conn, event, nick, tokens[1].strip(), message)
-            else:
-                self.reply_usage(conn, event, nick, 'reply {<post_id> | last} <message>')
-        else:
-            reply = "Unknown command: " + cmd
-            if event.target() in self.channels.keys():
-                conn.privmsg(event.target(), reply)
-            else:
-                conn.privmsg(nick, reply)
-    
+        Process(
+                target=CommandHandler(self,self.connection,event).do, 
+                args=(cmd,)
+            ).start()
+   
     @staticmethod
     def get_mentions(conn, channel, posting_api, since_id, since_id_lock):
         timestr = lambda sec: time.strftime(
