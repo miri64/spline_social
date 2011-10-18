@@ -6,6 +6,7 @@ post updates and browse through posted contents. The bot in turn posts all
 Licence: MIT License
 
 Dependancies:
+
  * python-oauth2 (https://github.com/simplegeo/python-oauth2), 
  * python-twitter (http://code.google.com/p/python-twitter/)
  * python-irclib (http://python-irclib.sourceforge.net/)
