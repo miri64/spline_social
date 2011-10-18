@@ -98,7 +98,7 @@ class TwitterBot(SingleServerIRCBot):
             session, posts = Post.get_last()
             reply = self._history_reply(conn, nick, posts)
             session.close()
-        elif len(args) == 2:
+        elif len(args) > 1:
             if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
                 session, posts = Post.get_by_day(args[1])
             else:
@@ -202,45 +202,43 @@ class TwitterBot(SingleServerIRCBot):
     def do_command(self, event, cmd):
         nick = nm_to_n(event.source())
         conn = self.connection
-        command = cmd.split()[0]
+        tokens = cmd.split()
+        command = tokens[0]
         if command == "help":
-            pass
+            reply = self.generate_help_text(tokens[1:])
+            conn.privmsg(nick, reply)
+            return
         elif command == "identify":
-            tokens = cmd.split()
             if len(tokens) == 3:
                 username = tokens[1]
                 password = tokens[2]
                 self.do_identify(conn, event, nick, username, password)
-            else:
-                self.reply_usage(conn, event, nick, 'identify <username> <password>')
+                return
         elif command == "history":
-            tokens = cmd.split()
             self.get_history(conn, event, nick, tokens)
+            return
         elif command == "post":
             message = cmd[len("post "):].strip()
             if len(message) > 0:
                 self.do_post(conn, event, nick, message)
-            else:
-                self.reply_usage(conn, event, nick, 'post <message>')
+                return
         elif command == "delete":
-            tokens = cmd.split()
             if len(tokens) == 2:
                 self.do_delete(conn, event, nick, tokens[1])
-            else:
-                self.reply_usage(conn, event, nick, 'remove {<post_id> | last}')
+                return
         elif command == "reply":
-            tokens = cmd.split()
             if len(tokens) > 2:
                 message = cmd[len("reply "+tokens[1])+1:].strip()
                 self.do_reply(conn, event, nick, tokens[1].strip(), message)
-            else:
-                self.reply_usage(conn, event, nick, 'reply {<post_id> | last} <message>')
+                return
         else:
             reply = "Unknown command: " + cmd
             if event.target() in self.channels.keys():
                 conn.privmsg(event.target(), reply)
             else:
                 conn.privmsg(nick, reply)
+            return
+        self.reply_usage(conn, event, nick, command_hlp[command]['usage'])
     
     @staticmethod
     def get_mentions(conn, channel, posting_api, since_id, since_id_lock):
