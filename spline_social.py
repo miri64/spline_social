@@ -64,9 +64,6 @@ def main(argv):
             base_url = 'https://identi.ca/api'
         )
     
-    user = User('martin','authmill','foobar')
-    db.add(user)
-    
     rpc_server = rpcs.initialize()
     
     bot = irc.TwitterBot(
