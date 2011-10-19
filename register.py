@@ -3,6 +3,8 @@
 import getpass, sys
 from xmlrpclib import ServerProxy
 
+SERVER = 'http://localhost:9000'
+
 def register(rpc):
     uid = getpass.getuser()
     username = raw_input(u"Dein Spline-Username [%s]: " % uid)
@@ -64,7 +66,7 @@ if __name__ == '__main__':
         'change_pw': change_pw,
         'toggle_mail': toggle_mail,
     }
-    rpc = ServerProxy("http://localhost:9000/")
+    rpc = ServerProxy(SERVER)
     try:
         calls[sys.argv[1]](rpc)
     except KeyError:
