@@ -40,9 +40,6 @@ def main(argv):
         config_file = CONFIG_FILE
     conf        = config.Config(config_file)
     
-    db_server       = conf.db.server
-    db_port         = conf.db.port
-    
     consumer_key = conf.identica.consumer_key
     consumer_secret = conf.identica.consumer_secret
     
@@ -54,9 +51,11 @@ def main(argv):
     
     db = DBConn(
             conf.db.driver,
+            conf.db.database,
             conf.db.username,
             conf.db.password,
-            conf.db.database
+            conf.db.server,
+            conf.db.port
         )
     
     api = apicalls.IdenticaApi(

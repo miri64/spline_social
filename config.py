@@ -18,6 +18,8 @@ DEFAULTS = {
         'Database': {
             'username': None,
             'password': None,
+            'server': 'localhost',
+            'port': None,
         },
         'Identi.ca': {
             'since_id': 0
