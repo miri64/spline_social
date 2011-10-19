@@ -80,6 +80,7 @@ def main(argv):
             conf.irc.port,
             conf.bot.bot_nick, 
             conf.bot.short_symbols,
+            conf.bot.mention_interval,
             conf.bot.since_id
         )
     bot.start()

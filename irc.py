@@ -274,6 +274,7 @@ class TwitterBot(SingleServerIRCBot):
             port=6667,
             nickname='spline_social',
             short_symbols='',
+            mention_interval=120,
             since_id=0
         ):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
@@ -282,6 +283,7 @@ class TwitterBot(SingleServerIRCBot):
         self.short_symbols = short_symbols
         self.since_id = since_id
         self.since_id_lock = Lock()
+        self.mention_interval = mention_interval
         self.mention_grabber = None
 
     def on_nicknameinuse(self, conn, event):
@@ -293,6 +295,7 @@ class TwitterBot(SingleServerIRCBot):
                 args=(
                         conn, 
                         self.channel, 
+                        self.mention_interval,
                         self.posting_api, 
                         self.since_id,
                         self.since_id_lock,
@@ -330,13 +333,13 @@ class TwitterBot(SingleServerIRCBot):
             ).start()
    
     @staticmethod
-    def get_mentions(conn, channel, posting_api, since_id, since_id_lock):
+    def get_mentions(conn, channel, interval, posting_api, since_id, since_id_lock):
         timestr = lambda sec: time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(sec)
             )
         while 1:
-            time.sleep(10)
+            time.sleep(interval)
             since_id_lock.acquire()
             statuses = posting_api.GetMentions(since_id)
             if len(statuses) > 0 and conn.socket != None:   # if there is a connection

@@ -14,6 +14,7 @@ DEFAULTS = {
         'Bot': {
             'bot_nick': 'spline_social',
             'since_id': '',
+            'mention_interval': 120,
         },
         'Database': {
             'username': None,
