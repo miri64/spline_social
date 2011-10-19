@@ -20,29 +20,7 @@ def get_authorization(consumer_key, consumer_secret):
 
     return auth.obtain_access_tokens(pincode)
 
-def main(argv):
-    if len(argv) > 1:
-        config_file = argv[1]
-    else:
-        config_file = CONFIG_FILE
-    conf        = config.Config(config_file)
-    irc_server  = conf.irc.server
-    irc_port    = conf.irc.port
-    irc_channel = conf.irc.channel
-    
-    rpc_port    = conf.rpc.port
-    
-    bot_nick        = conf.bot.bot_nick
-    short_symbols   = conf.bot.short_symbols
-    
-    db_driver       = conf.db.driver
-    db_username     = conf.db.username
-    db_password     = conf.db.password
-    db_name         = conf.db.database
-    
-    consumer_key = conf.identica.consumer_key
-    consumer_secret = conf.identica.consumer_secret
-    
+def get_access_token(conf, consumer_key, consumer_secret):
     if conf.identica.has_option('access_key') and \
             conf.identica.has_option('access_secret'):
         access_key = conf.identica.access_key
@@ -53,10 +31,33 @@ def main(argv):
         access_secret = access_token['oauth_token_secret']
         conf.identica.access_key = access_key
         conf.identica.access_secret = access_secret
+    return access_key, access_secret
+
+def main(argv):
+    if len(argv) > 1:
+        config_file = argv[1]
+    else:
+        config_file = CONFIG_FILE
+    conf        = config.Config(config_file)
     
-    since_id = conf.identica.since_id
+    db_server       = conf.db.server
+    db_port         = conf.db.port
     
-    db = DBConn(db_driver,db_username,db_password,db_name)
+    consumer_key = conf.identica.consumer_key
+    consumer_secret = conf.identica.consumer_secret
+    
+    access_key, access_secret = get_access_token(
+            conf, 
+            consumer_key, 
+            consumer_secret
+        )
+    
+    db = DBConn(
+            conf.db.driver,
+            conf.db.username,
+            conf.db.password,
+            conf.db.database
+        )
     
     api = apicalls.IdenticaApi(
             consumer_key = consumer_key,
@@ -66,16 +67,21 @@ def main(argv):
             base_url = 'https://identi.ca/api'
         )
     
-    rpc_server_thread = rpcs.initialize(rpc_port)
+    rpc_server_thread = rpcs.initialize(
+            conf.rpc.port, 
+            db, 
+            conf.ldap.server,
+            conf.ldap.port
+        )
     
     bot = irc.TwitterBot(
             api, 
-            irc_channel, 
-            bot_nick, 
-            irc_server, 
-            irc_port,
-            short_symbols,
-            since_id
+            conf.irc.channel, 
+            conf.irc.server, 
+            conf.irc.port,
+            conf.bot.bot_nick, 
+            conf.bot.short_symbols,
+            conf.bot.since_id
         )
     bot.start()
 

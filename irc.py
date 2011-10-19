@@ -226,7 +226,16 @@ class CommandHandler:
         self.do_post(message, status_id)
 
 class TwitterBot(SingleServerIRCBot):
-    def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
+    def __init__(
+            self,
+            posting_api,
+            channel,
+            server,
+            port=6667,
+            nickname='spline_social',
+            short_symbols='',
+            since_id=0
+        ):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
         self.channel = channel
         self.posting_api = posting_api
