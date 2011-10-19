@@ -299,7 +299,8 @@ class TwitterBot(SingleServerIRCBot):
         conn.join(self.channel)
     
     def on_disconnect(self, conn, event):
-        mention_grabber.terminate()
+        if mention_grabber != None:
+            mention_grabber.terminate()
 
     def on_privmsg(self, conn, event):
         self.do_command(event, event.arguments()[0])
