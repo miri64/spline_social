@@ -92,7 +92,7 @@ class Authorization:
 
 def send_information_mail(bot_nick, user, post):
     user_mail = "%s@spline.inf.fu-berlin.de" % user.ldap_id
-    bot_mail = "%s@spline.inf.fu-berlin.de" % 'authmill'
+    bot_mail = "%s@spline.inf.fu-berlin.de" % 'spline'
     text = information_text.replace('{ ldap_id }', user.ldap_id)
     text = text.replace('{ post_text }', post.text)
     text = text.replace('{ post_id }', str(post.id))
