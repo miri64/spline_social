@@ -68,7 +68,12 @@ class SplineSocialAPI:
     def get_user(self, username):
         user = User.get_by_user_id(username)
         user.session.close()
-        return user
+        return {
+                'user_id': user.user_id,
+                'ldap_id': user.ldap_id,
+                'banned': user.banned,
+                'gets_mail': user.gets_mail,
+            }
     
     def get_tweets(self, username = None, limit = 20):
         if username == None:
