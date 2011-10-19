@@ -157,6 +157,7 @@ class CommandHandler:
         try:
             if len(message) > 0:
                 status = self.bot.posting_api.PostUpdate(
+                        self.conn.get_nickname(),
                         self.event.source(), 
                         message, 
                         in_reply_to_status_id
