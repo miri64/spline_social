@@ -44,7 +44,7 @@ class SplineSocialAPI:
         else:
             return False
     
-    def _get_user(self, username, password):
+    def _get_and_validate_user(self, username, password):
         user = User.get_by_user_id(username)
         if user == None or not user.validate_password(password):
             raise AuthenticationError(
@@ -53,17 +53,22 @@ class SplineSocialAPI:
         return user
     
     def toggle_gets_mail(self, username, password):
-        user = self._get_user(username, password)
+        user = self._get_and_validate_user(username, password)
         user.gets_mail = not user.gets_mail
         user.session.commit()
         user.session.close()
         return user.gets_mail
     
     def set_new_password(self, username, password, new_password):
-        user = self._get_user(username, password)
+        user = self._get_and_validate_user(username, password)
         user.password = new_password
         user.session.commit()
         user.session.close()
+    
+    def get_user(self, username):
+        user = User.get_by_user_id(username)
+        user.session.close()
+        return user
     
     def get_tweets(self, username = None):
         if username == None:
