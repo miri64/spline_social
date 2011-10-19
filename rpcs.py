@@ -4,6 +4,13 @@ from db import User, Post
 import config
 from multiprocessing import Process
 
+class AuthenticationError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+    
+    def __repr__(self):
+        return self.msg
+
 class SplineSocialAPI:
     def __init__(self, database, ldap_server, ldap_port = None):
         self.database = database
@@ -36,7 +43,22 @@ class SplineSocialAPI:
             return True
         else:
             return False
-
+    
+    def _get_user(self, username, password):
+        user = User.get_by_user_id(username)
+        if user == None or not user.validate_password(password):
+            raise AuthenticationError(
+                    'Username or password does not match.'
+                )
+        return user
+    
+    def toggle_gets_mail(self, username, password):
+        user = self._get_user(username, password)
+        user.gets_mail = not user.gets_mail
+        user.session.commit()
+        user.session.close()
+        return user.gets_mail
+    
     def get_tweets(self, username = None):
         if username == None:
             session, posts = Post.get_all()
