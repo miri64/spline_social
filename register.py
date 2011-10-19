@@ -3,8 +3,7 @@
 import getpass, sys
 from xmlrpclib import ServerProxy
 
-def register():
-    rpc = ServerProxy("http://localhost:9000/")
+def register(rpc):
     uid = getpass.getuser()
     username = raw_input(u"Dein Spline-Username [%s]: " % uid)
     spline_username = uid if username == '' else username
@@ -29,6 +28,44 @@ def register():
         print "Anmeldung erfolgreich."
     else:
         print "Anmeldung fehlgeschlagen. Spline-Credentials falsch?"
-    
+
+def change_pw(rpc):
+    uid = getpass.getuser()
+    username = raw_input(u"Username [%s]: " % uid)
+    username = uid if username == '' else username
+    password = getpass.getpass('Altes Passwort: ')
+    while new_password != new_password2:
+        new_password = getpass.getpass(u'Neues Passwort: ')
+        new_password2 = getpass.getpass('Wiederholung: ')
+        if new_password != new_password2:
+            print u"Eingaben stimmen nicht ueberein."
+    rpc.set_new_password(username,password,new_password)
+    print "Passwort geändert!"
+
+def toggle_mail(rpc):
+    uid = getpass.getuser()
+    username = raw_input(u"Username [%s]: " % uid)
+    username = uid if username == '' else username
+    password = getpass.getpass('Passwort: ')
+    gets_mail = rpc.toggle_gets_mail(username, password)
+    if gets_mail:
+        print "Du erhaelst nun Informationen über deine Posts per E-Mail."
+    else:
+        print "E-Mail-Information deaktiviert."
+
+def usage(prog_name):
+    print >> sys.stderr, "Usage: %s { register | change_pw | toggle_mail }" % prog_name
+
 if __name__ == '__main__':
-    register()
+    if len(sys.argv) < 2:
+        usage(sys.argv[0])
+    calls = {
+        'register': register,
+        'change_pw': change_pw,
+        'toggle_mail': toggle_mail,
+    }
+    rpc = ServerProxy("http://localhost:9000/")
+    try:
+        calls[sys.argv[1]](rpc)
+    except KeyError:
+        usage(sys.argv[0])
