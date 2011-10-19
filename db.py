@@ -89,11 +89,7 @@ class User(Base):
             return False
     
     def add_post(self,status):
-        db = DBConn()
-        db_session = db.get_session()
         self.posts.append(Post(status))
-        db_session.commit()
-        db_session.close()
         self.session.commit()
         self.session.close()
     
@@ -103,6 +99,9 @@ class User(Base):
         db_session = db.get_session()
         user = db_session.query(User). \
                 filter(User.user_id == user_id).first()
+        if user == None:
+            db_session.close()
+            return None
         user.session = db_session
         return user
     
@@ -114,6 +113,7 @@ class User(Base):
                 select_from(sqlalchemy.orm.join(User, Login)). \
                 filter(Login.irc_id == irc_id).first()
         if user == None:
+            db_session.close()
             raise User.NotLoggedIn("You must identify to use this command.")
         user.session = db_session
         return user

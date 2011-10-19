@@ -171,8 +171,8 @@ class CommandHandler:
                         "140 characters. Your text has length %d." % len(message)
             else:
                 reply = "%s" % e
-        except User.NotLoggedIn:
-            reply = "You must be identified to use the 'post' command"
+        except User.NotLoggedIn, e:
+            reply = str(e)
         self._do_reply(reply)
     
     def do_delete(self, argument):
@@ -203,8 +203,8 @@ class CommandHandler:
                 Post.mark_deleted(status_id)
             else:
                 reply = str(e)
-        except Post.DoesNotExist:
-            reply = "Status %d not tracked." % status_id
+        except Post.DoesNotExist, e:
+            reply = str(e)
         except User.NotLoggedIn, e:
             reply = str(e)
         self._do_reply(reply)
