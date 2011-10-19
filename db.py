@@ -126,7 +126,7 @@ class User(Base):
         return user
     
     @staticmethod
-    def get_by_ldap_id(ldap_id)
+    def get_by_ldap_id(ldap_id):
         db = DBConn()
         db_session = db.get_session()
         user = db_session.query(User). \
@@ -262,8 +262,8 @@ class Post(Base):
     def delete(status_id, irc_id):
         db = DBConn()
         user = User.get_by_irc_id(irc_id)
-        db_session = user.session:
-            if not user.banned:
+        db_session = user.session
+        if not user.banned:
             post = db_session.query(Post). \
                     filter(Post.status_id == status_id).first()
             if post != None:

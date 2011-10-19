@@ -18,7 +18,7 @@ class CommandHandler:
             'bann': {
                     'usage': 'bann <username>',
                     'text': 'Banns a user and disables his or hers ability to post, delete posts and bann/unbann users.'
-                }
+                },
             'help': {
                     'usage': 'help [<command >]', 
                     'text': 'Show help.'
@@ -42,11 +42,11 @@ class CommandHandler:
             'reply': {
                     'usage': 'reply {<post_id> | last} <message>', 
                     'text': 'reply to last post or the post with the id <post_id>.'
-                }
+                },
             'unbann': {
                     'usage': 'unbann <username>',
                     'text': 'Unbanns a user and reverts all effects of a bann.'
-                }
+                },
         }
     
     def __init__(self, bot, conn, event):
