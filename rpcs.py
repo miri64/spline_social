@@ -38,9 +38,9 @@ def get_tweets(username = None):
             posts
         )
 
-def initialize():
+def initialize(port):
     conf = config.Config()
-    server = SimpleXMLRPCServer(('localhost', conf.rpc.port))
+    server = SimpleXMLRPCServer(('localhost', port))
     print conf.rpc.port
     server.register_function(add_user)
     server.register_function(get_tweets)

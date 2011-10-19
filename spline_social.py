@@ -25,18 +25,20 @@ def main(argv):
         config_file = argv[1]
     else:
         config_file = CONFIG_FILE
-    conf    = config.Config(config_file)
-    server  = conf.irc.server
-    port    = conf.irc.port
-    channel = conf.irc.channel
+    conf        = config.Config(config_file)
+    irc_server  = conf.irc.server
+    irc_port    = conf.irc.port
+    irc_channel = conf.irc.channel
+    
+    rpc_port    = conf.rpc.port
     
     bot_nick        = conf.bot.bot_nick
     short_symbols   = conf.bot.short_symbols
     
-    driver      = conf.db.driver
-    username    = conf.db.username
-    password    = conf.db.password
-    name        = conf.db.database
+    db_driver       = conf.db.driver
+    db_username     = conf.db.username
+    db_password     = conf.db.password
+    db_name         = conf.db.database
     
     consumer_key = conf.identica.consumer_key
     consumer_secret = conf.identica.consumer_secret
@@ -54,7 +56,7 @@ def main(argv):
     
     since_id = conf.identica.since_id
     
-    db = DBConn(driver,username,password,name)
+    db = DBConn(db_driver,db_username,db_password,db_name)
     
     api = apicalls.IdenticaApi(
             consumer_key = consumer_key,
@@ -64,14 +66,14 @@ def main(argv):
             base_url = 'https://identi.ca/api'
         )
     
-    rpc_server_thread = rpcs.initialize()
+    rpc_server_thread = rpcs.initialize(rpc_port)
     
     bot = irc.TwitterBot(
             api, 
-            channel, 
+            irc_channel, 
             bot_nick, 
-            server, 
-            port,
+            irc_server, 
+            irc_port,
             short_symbols,
             since_id
         )
