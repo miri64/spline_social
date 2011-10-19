@@ -219,7 +219,7 @@ class Post(Base):
                 from_self().order_by(Post.status_id).all()
     
     @staticmethod
-    def get_by_user(user_id):
+    def get_by_user(user_id, max = 10):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
@@ -227,7 +227,7 @@ class Post(Base):
                 filter(
                         User.ldap_id == user_id and 
                         Post.deleted == False
-                    ).all()
+                    ).limit(max).all()
     
     @staticmethod
     def get_by_day(datestring):

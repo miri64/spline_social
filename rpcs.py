@@ -70,11 +70,11 @@ class SplineSocialAPI:
         user.session.close()
         return user
     
-    def get_tweets(self, username = None):
+    def get_tweets(self, username = None, limit = 20):
         if username == None:
-            session, posts = Post.get_all()
+            session, posts = Post.get_last(limit)
         else:
-            session, posts = Post.get_by_user(username)
+            session, posts = Post.get_by_user(username, limit)
         session.close()
         return map(
                 lambda x: {
