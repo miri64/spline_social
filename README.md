@@ -12,3 +12,4 @@ Dependancies:
  * python-irclib (http://python-irclib.sourceforge.net/)
  * python-ldap (http://www.python-ldap.org/)
  * python-sqlalchemy (http://www.sqlalchemy.org/)
+ * sendmail
