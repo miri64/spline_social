@@ -59,6 +59,12 @@ class SplineSocialAPI:
         user.session.close()
         return user.gets_mail
     
+    def set_new_password(self, username, password, new_password):
+        user = self._get_user(username, password)
+        user.password = new_password
+        user.session.commit()
+        user.session.close()
+    
     def get_tweets(self, username = None):
         if username == None:
             session, posts = Post.get_all()
