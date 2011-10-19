@@ -13,7 +13,7 @@ DEFAULTS = {
         },
         'Bot': {
             'bot_nick': 'spline_social',
-            'since_id': '',
+            'since_id': 0,
             'mention_interval': 120,
         },
         'Database': {
@@ -22,9 +22,6 @@ DEFAULTS = {
             'server': 'localhost',
             'port': None,
         },
-        'Identi.ca': {
-            'since_id': 0
-        }
     }
 
 class OptionMissing(AttributeError):

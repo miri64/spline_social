@@ -1,10 +1,9 @@
-from multiprocessing import Process, Lock
+from multiprocessing import Process
 from ircbot import SingleServerIRCBot
 from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
-from db import User, Post
+from db import User, Post, Timeline
 from apicalls import IdenticaError
-from config import Config
-import sys, time, traceback, config, re
+import sys, time, traceback, re
 
 class CommandHandler:
     class UsageError(Exception):
@@ -246,10 +245,8 @@ class CommandHandler:
         self._do_reply(reply)
     
     def do_reply(self, recipient, message):
-        self.bot.since_id_lock.acquire()
-        conf = Config() 
         if recipient == 'last':
-            status_id = conf.identica.since_id
+            status_id = Timeline.get_by_name('mentions').since_id
         elif recipient.find('@') == 0:
             reply = "Direct user answer is not implemented yet."
             self._do_reply(reply)
@@ -258,7 +255,6 @@ class CommandHandler:
             status_id = int(recipient)
         else:
             raise CommandHandler.UsageError('reply')
-        self.bot.since_id_lock.release()
         status = self.bot.posting_api.GetStatus(status_id)
         self.do_post(message, status_id)
     
@@ -281,9 +277,8 @@ class TwitterBot(SingleServerIRCBot):
         self.channel = channel
         self.posting_api = posting_api
         self.short_symbols = short_symbols
-        self.since_id = since_id
-        self.since_id_lock = Lock()
         self.mention_interval = mention_interval
+        self.since_id = Timeline.update('mentions', since_id)
         self.mention_grabber = None
 
     def on_nicknameinuse(self, conn, event):
@@ -298,7 +293,6 @@ class TwitterBot(SingleServerIRCBot):
                         self.mention_interval,
                         self.posting_api, 
                         self.since_id,
-                        self.since_id_lock,
                     )
             )
         self.mention_grabber.start()
@@ -333,20 +327,17 @@ class TwitterBot(SingleServerIRCBot):
             ).start()
    
     @staticmethod
-    def get_mentions(conn, channel, interval, posting_api, since_id, since_id_lock):
+    def get_mentions(conn, channel, interval, posting_api, since_id):
         timestr = lambda sec: time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(sec)
             )
         while 1:
             time.sleep(interval)
-            since_id_lock.acquire()
             statuses = posting_api.GetMentions(since_id)
             if len(statuses) > 0 and conn.socket != None:   # if there is a connection
                 since_id = max(statuses, key = lambda s: s.id).id
-                conf = Config()
-                conf.identica.since_id = since_id
-                since_id_lock.release()
+                Timeline.update('mentions', since_id)
                 for status in statuses:
                     mention = "@%s: %s (%s, %s)" % \
                             (status.user.screen_name,
@@ -355,8 +346,6 @@ class TwitterBot(SingleServerIRCBot):
                              "https://identi.ca/notice/%d" % status.id
                             )
                     conn.privmsg(channel, mention)
-            else:
-                since_id_lock.release()
     
     def start(self):
         try:

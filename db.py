@@ -313,6 +313,53 @@ class Login(Base):
     def __repr__(self):
         return "<Post('%s','%s')>" % (self.irc_id, str(self.expires))
 
+class Timeline(Base):
+    __tablename__ = 'timelines'
+    
+    name = sqlalchemy.Column(
+            sqlalchemy.String, 
+            primary_key = True,
+            unique = True
+        )
+    since_id = sqlalchemy.Column(
+            sqlalchemy.Integer, 
+            nullable=False
+        )
+    
+    def __init__(self, name, since_id):
+        self.name = name.strip()
+        self.since_id = since_id
+    
+    def __repr__(self):
+        return "<Timeline('%s','%d')>" % (self.name, self.since_id)
+    
+    @staticmethod
+    def get_by_name(name):
+        db = DBConn()
+        db_session = db.get_session()
+        tl = db_session.query(Timeline). \
+                filter(Timeline.name == name.strip()).first()
+        if tl == None:
+            db_session.close()
+            return None
+        tl.session = db_session
+        return tl
+    
+    @staticmethod
+    def update(name, since_id):
+        tl = Timeline.get_by_name(name)
+        if tl == None:
+            db = DBConn()
+            tl = Timeline(name, since_id)
+            db.add(tl)
+            return since_id
+        if tl.since_id < since_id:
+            tl.since_id = since_id
+        since_id = int(tl.since_id)
+        tl.session.commit()
+        tl.session.close()
+        return since_id
+
 class DBConn(object):
     def __new__(type, *args, **kwargs):
         if not '_the_instance' in type.__dict__:
