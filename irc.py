@@ -15,6 +15,10 @@ class CommandHandler:
             return self.command
     
     command_help = {
+            'bann': {
+                    'usage': 'bann <username>',
+                    'text': 'Banns a user and disables his or hers ability to post, delete posts and bann/unbann users.'
+                }
             'help': {
                     'usage': 'help [<command >]', 
                     'text': 'Show help.'
@@ -38,6 +42,10 @@ class CommandHandler:
             'reply': {
                     'usage': 'reply {<post_id> | last} <message>', 
                     'text': 'reply to last post or the post with the id <post_id>.'
+                }
+            'unbann': {
+                    'usage': 'unbann <username>',
+                    'text': 'Unbanns a user and reverts all effects of a bann.'
                 }
         }
     
@@ -98,6 +106,30 @@ class CommandHandler:
         except CommandHandler.UsageError, e:
             reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
         self._do_reply(reply)
+    
+    def _set_bann(self, username, bann_status):
+        try:
+            bannee = User.get_by_ldap_id(username)
+            banner = User.get_by_irc_id(self.event.source())
+            if banner.banned:
+                reply = 'You are banned.'
+                bannee.session.close()
+                banner.session.close()
+            elif bannee != None:
+                bannee.banned = True
+                reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
+                bannee.session.commit()
+                bannee.session.close()
+                banner.session.close()
+            else:
+                reply = 'User %s does not exist.' % username
+                banner.session.close()
+        except User.NotLoggedIn, e:
+            reply = str(e)
+        self._do_reply(reply)
+    
+    def do_bann(self, username):
+        self._set_bann(username, True)
     
     def do_help(self, command = None):
         if command == None:
@@ -173,6 +205,8 @@ class CommandHandler:
                 reply = "%s" % e
         except User.NotLoggedIn, e:
             reply = str(e)
+        except User.Banned, e:
+            reply = str(e)
         self._do_reply(reply)
     
     def do_delete(self, argument):
@@ -207,6 +241,8 @@ class CommandHandler:
             reply = str(e)
         except User.NotLoggedIn, e:
             reply = str(e)
+        except User.Banned, e:
+            reply = str(e)
         self._do_reply(reply)
     
     def do_reply(self, recipient, message):
@@ -225,6 +261,9 @@ class CommandHandler:
         self.bot.since_id_lock.release()
         status = self.bot.posting_api.GetStatus(status_id)
         self.do_post(message, status_id)
+    
+    def do_unbann(self, username):
+        self._set_bann(username, False)
 
 class TwitterBot(SingleServerIRCBot):
     def __init__(

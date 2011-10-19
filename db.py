@@ -16,6 +16,13 @@ class User(Base):
         def __repr__(self):
             return self.msg
     
+    class Banned(Exception):
+        def __init__(self, msg):
+            self.msg = msg
+        
+        def __repr__(self):
+            return self.msg
+    
     __tablename__ = 'users'
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
@@ -115,6 +122,18 @@ class User(Base):
         if user == None:
             db_session.close()
             raise User.NotLoggedIn("You must identify to use this command.")
+        user.session = db_session
+        return user
+    
+    @staticmethod
+    def get_by_ldap_id(ldap_id)
+        db = DBConn()
+        db_session = db.get_session()
+        user = db_session.query(User). \
+                filter(User.ldap_id == ldap_id).first()
+        if user == None:
+            db_session.close()
+            return None
         user.session = db_session
         return user
 
@@ -243,15 +262,18 @@ class Post(Base):
     def delete(status_id, irc_id):
         db = DBConn()
         user = User.get_by_irc_id(irc_id)
-        db_session = user.session
-        post = db_session.query(Post). \
-                filter(Post.status_id == status_id).first()
-        if post != None:
-            post.deleter = user
-            post.deleted = True
-            db_session.commit()
+        db_session = user.session:
+            if not user.banned:
+            post = db_session.query(Post). \
+                    filter(Post.status_id == status_id).first()
+            if post != None:
+                post.deleter = user
+                post.deleted = True
+                db_session.commit()
+            else:
+                raise Post.DoesNotExist("Post %d not tracked" % status_id)
         else:
-            raise Post.DoesNotExist("Post %d not tracked" % status_id)
+            raise User.Banned('You are banned.')
         db_session.close()
 
 class Login(Base):
