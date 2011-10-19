@@ -299,32 +299,33 @@ class DBConn(object):
     
     def __init__(
             self, 
-            driver, 
-            name, 
+            driver = None, 
+            name = None, 
             username = None, 
             password = None, 
             host = 'localhost',
             port = None
         ):
-        if password == None:
-            password = ''
-        if username == None:
-            authentication = ''
-        else:
-            authentication = '%s:%s' % (username,password)
-        if host == None:
-            host = 'localhost'
-        elif port != None:
-            host = '%s:%s' % (host,port)
-        if driver.find('sqlite') < 0:
-            self.engine = sqlalchemy.create_engine(
-                    '%s://%s@%s/%s' % (driver,authentication,host,name)
-                )
-        else:
-            self.engine = sqlalchemy.create_engine(
-                    '%s:///%s' % (driver,name)
-                )
-        Base.metadata.create_all(self.engine)
+        if driver != None and name != None:
+            if password == None:
+                password = ''
+            if username == None:
+                authentication = ''
+            else:
+                authentication = '%s:%s' % (username,password)
+            if host == None:
+                host = 'localhost'
+            elif port != None:
+                host = '%s:%s' % (host,port)
+            if driver.find('sqlite') < 0:
+                self.engine = sqlalchemy.create_engine(
+                        '%s://%s@%s/%s' % (driver,authentication,host,name)
+                    )
+            else:
+                self.engine = sqlalchemy.create_engine(
+                        '%s:///%s' % (driver,name)
+                    )
+            Base.metadata.create_all(self.engine)
     
     def get_session(self):
         Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
