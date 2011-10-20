@@ -108,7 +108,7 @@ class CommandHandler:
                     print "UrlError", e
                     time.sleep(0.2)
         except KeyError:
-            reply = "Unknown command: " + cmd
+            reply = "Unknown command: " + command
         except CommandHandler.UsageError, e:
             reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
         self._do_reply(reply)
