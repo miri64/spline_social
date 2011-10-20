@@ -168,7 +168,7 @@ class CommandHandler:
                 banner.session.close()
             elif bannee != None:
                 if bannee.user_id == banner.user_id:
-                    reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un', username)
+                    reply = 'You can\'t %sban yourself.' % '' if bann_status else 'un'
                 else:
                     bannee.banned = True
                     reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
