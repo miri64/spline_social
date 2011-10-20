@@ -78,21 +78,25 @@ class CommandHandler:
         args = command_str.split()
         command = args[0].strip()
         try:
-            if command == 'post':
-                message = command_str[len('post '):].strip()
-                command_f[command](message)
-            elif command == 'reply':
-                if len(args) < 2:
-                    raise CommandHandler.UsageError(command)
-                recipient = args[1].strip()
-                message = command_str[len('reply '+recipient)+1:].strip()
-                command_f[command](recipient, message)
-            else:
+            while 1:
                 try:
-                    command_f[command](*args[1:])
-                except TypeError:
-                    raise CommandHandler.UsageError(command)
-            return
+                    if command == 'post':
+                        message = command_str[len('post '):].strip()
+                        command_f[command](message)
+                    elif command == 'reply':
+                        if len(args) < 2:
+                            raise CommandHandler.UsageError(command)
+                        recipient = args[1].strip()
+                        message = command_str[len('reply '+recipient)+1:].strip()
+                        command_f[command](recipient, message)
+                    else:
+                        try:
+                            command_f[command](*args[1:])
+                        except TypeError:
+                            raise CommandHandler.UsageError(command)
+                    return
+                except URLError:
+                    pass
         except KeyError:
             reply = "Unknown command: " + cmd
         except CommandHandler.UsageError, e:
