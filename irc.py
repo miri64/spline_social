@@ -37,7 +37,7 @@ class CommandHandler:
                     'text': 'Post a message to identi.ca.'
                 },
             'delete': {
-                    'usage': 'remove {<post_id> | last}', 
+                    'usage': 'delete {<post_id> | last}', 
                     'text': 'Remove last post or the post with the id <post_id>.'
                 },
             'reply': {
@@ -221,7 +221,7 @@ class CommandHandler:
             if len(posts) > 0:
                 status_id = posts[0].status_id
             else:
-                reply = "%s, I don't know any posts." % nick
+                reply = "%s, I don't know any posts." % self._get_nick()
                 if event.target() in self.channels.keys():
                     conn.privmsg(event.target(), reply)
                 else:
