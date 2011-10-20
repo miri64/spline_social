@@ -184,10 +184,10 @@ class CommandHandler:
         if argument == None:
             session, posts = Post.get_last()
         else:
-            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
-                session, posts = Post.get_by_day(args[1])
+            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',argument):
+                session, posts = Post.get_by_day(argument)
             else:
-                session, posts = Post.get_by_user(args[1])
+                session, posts = Post.get_by_user(argument)
         self._generate_history_replies(posts)
         session.close()
     
