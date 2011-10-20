@@ -238,7 +238,7 @@ class Post(Base):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
-                select_from(sqlalchemy.orm.join(User, Post, onclause=Post.user_id)). \
+                select_from(sqlalchemy.orm.join(User, Post, onclause=Post.poster_id)). \
                 filter(
                         User.ldap_id == user_id and 
                         Post.deleted == False
@@ -246,7 +246,7 @@ class Post(Base):
     
     @staticmethod
     def get_by_day(datestring):
-        day = date.strptime(datestring, "%Y-%m-%d")
+        day = datetime.strptime(datestring, "%Y-%m-%d").date
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
                 filter(
