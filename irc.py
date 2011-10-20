@@ -235,7 +235,7 @@ class CommandHandler:
                     self.event.source(), 
                     status_id
                 )
-            reply = "%s, status %d deleted" % status_id
+            reply = "Status %d deleted" % status_id
         except IdenticaError, e:
             if str(e).find('Status deleted') >= 0:
                 reply = "Status %d already deleted." % status_id
