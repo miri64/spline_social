@@ -296,8 +296,6 @@ class Login(Base):
     expires = sqlalchemy.Column(
             sqlalchemy.DateTime,
             sqlalchemy.CheckConstraint("expires >= DATETIME('now')"), 
-            primary_key = True,
-            unique = True,
             nullable=False
         )
     
