@@ -299,8 +299,8 @@ class TwitterBot(SingleServerIRCBot):
         conn.join(self.channel)
     
     def on_disconnect(self, conn, event):
-        if mention_grabber != None:
-            mention_grabber.terminate()
+        if self.mention_grabber != None:
+            self.mention_grabber.terminate()
 
     def on_privmsg(self, conn, event):
         self.do_command(event, event.arguments()[0])
@@ -353,6 +353,7 @@ class TwitterBot(SingleServerIRCBot):
             SingleServerIRCBot.start(self)
         except BaseException:
             sys.stderr.write(traceback.format_exc())
-            self.mention_grabber.terminate()
+            if self.mention_grabber:
+                self.mention_grabber.terminate()
             exit(1)
         
