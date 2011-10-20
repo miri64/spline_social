@@ -14,7 +14,7 @@ class AuthenticationError(Exception):
 class SplineSocialAPI:
     def __init__(self, database, ldap_base, ldap_server, ldap_port = None):
         self.database = database
-        self.ldap_base = base
+        self.ldap_base = ldap_base
         if ldap_port == None:
             self.l = ldap.initialize('ldap://%s' % ldap_server)
         else:
