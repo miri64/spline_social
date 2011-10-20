@@ -11,6 +11,9 @@ DEFAULTS = {
         'RPC': {
             'port': 9000,
         },
+        'SMTP': {
+            'server': 'localhost'
+        }
         'Bot': {
             'bot_nick': 'spline_social',
             'since_id': 0,
@@ -82,6 +85,8 @@ class Config(object):
             return self.get_section('RPC')
         elif attr == 'bot':
             return self.get_section('Bot')
+        elif attr == 'smtp':
+            return self.get_section('SMTP')
         elif attr == 'db':
             return self.get_section('Database')
         elif attr == 'identica':

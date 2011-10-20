@@ -103,7 +103,8 @@ class CommandHandler:
                             raise CommandHandler.UsageError(command)
                     return
                 except URLError:
-                    pass
+                    print "UrlError", e
+                    time.sleep(0.2)
         except KeyError:
             reply = "Unknown command: " + cmd
         except CommandHandler.UsageError, e:
@@ -192,7 +193,6 @@ class CommandHandler:
         try:
             if len(message) > 0:
                 status = self.bot.posting_api.PostUpdate(
-                        self.conn.get_nickname(),
                         self.event.source(), 
                         message, 
                         in_reply_to_status_id
