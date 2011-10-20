@@ -4,6 +4,7 @@ from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_nu
 from db import User, Post, Timeline
 from apicalls import IdenticaError
 import sys, time, traceback, re
+from urllib2 import URLError
 
 class CommandHandler:
     class UsageError(Exception):
