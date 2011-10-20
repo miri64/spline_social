@@ -105,7 +105,7 @@ class IdenticaApi(identica.Api):
         text = text.replace('{ bot_nick }', self.bot_nick)
         msg = MIMEText(text)
         
-        msg['Subject'] = 'Dein Post von %s (ID %d)' % (post.created_at, post.id)
+        msg['Subject'] = 'Dein Post vom %s (ID %d)' % (post.created_at, post.id)
         msg['From'] = bot_mail
         msg['To'] = user_mail
         

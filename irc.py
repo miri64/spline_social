@@ -24,8 +24,8 @@ class CommandHandler:
                     'text': 'Toggles the admin state of <username>.'
                 },
             'ban': {
-                    'usage': 'bann <username>',
-                    'text': 'Banns a user and disables his or hers ability to post, delete posts and bann/unbann users.'
+                    'usage': 'ban <username>',
+                    'text': 'Bans a user and disables his or hers ability to post, delete posts and bann/unbann users.'
                 },
             'help': {
                     'usage': 'help [<command >]', 
@@ -52,8 +52,8 @@ class CommandHandler:
                     'text': 'reply to last post or the post with the id <post_id>.'
                 },
             'unban': {
-                    'usage': 'unbann <username>',
-                    'text': 'Unbanns a user and reverts all effects of a bann.'
+                    'usage': 'unban <username>',
+                    'text': 'Unbans a user and reverts all effects of a ban.'
                 },
         }
     
@@ -168,7 +168,7 @@ class CommandHandler:
                 banner.session.close()
             elif bannee != None:
                 if bannee.user_id == banner.user_id:
-                    reply = 'You can\'t %sban yourself.' % '' if bann_status else 'un'
+                    reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un')
                 else:
                     bannee.banned = True
                     reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
@@ -272,8 +272,8 @@ class CommandHandler:
                 status_id = posts[0].status_id
             else:
                 reply = "%s, I don't know any posts." % self._get_nick()
-                if event.target() in self.channels.keys():
-                    conn.privmsg(event.target(), reply)
+                if self.event.target() in self.channels.keys():
+                    self.conn.privmsg(event.target(), reply)
                 else:
                     conn.privmsg(nick, reply)
         elif re.match('^[0-9]+$', argument):
