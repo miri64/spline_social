@@ -179,7 +179,7 @@ class CommandHandler:
                 reply = 'User %s does not exist.' % username
                 banner.session.close()
         except User.NotLoggedIn, e:
-            if bannee != None
+            if bannee != None:
                 bannee.session.close()
             reply = str(e)
         self._do_reply(reply)
