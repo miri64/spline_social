@@ -3,8 +3,6 @@
 import getpass, sys
 from xmlrpclib import ServerProxy
 
-SERVER = 'http://localhost:9000'
-
 def register(rpc):
     uid = getpass.getuser()
     username = raw_input(u"Dein Spline-Username [%s]: " % uid)
@@ -56,18 +54,18 @@ def toggle_mail(rpc):
         print "E-Mail-Information deaktiviert."
 
 def usage(prog_name):
-    print >> sys.stderr, "Usage: %s { register | change_pw | toggle_mail }" % prog_name
+    print >> sys.stderr, "Usage: %s server { register | change_pw | toggle_mail }" % prog_name
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         usage(sys.argv[0])
     calls = {
         'register': register,
         'change_pw': change_pw,
         'toggle_mail': toggle_mail,
     }
-    rpc = ServerProxy(SERVER)
+    rpc = ServerProxy(sys.argv[1])
     try:
-        calls[sys.argv[1]](rpc)
+        calls[sys.argv[2]](rpc)
     except KeyError:
         usage(sys.argv[0])
