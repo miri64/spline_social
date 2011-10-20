@@ -334,7 +334,6 @@ class TwitterBot(SingleServerIRCBot):
                 time.localtime(sec)
             )
         while 1:
-            time.sleep(interval)
             statuses = posting_api.GetMentions(since_id)
             if len(statuses) > 0 and conn.socket != None:   # if there is a connection
                 since_id = max(statuses, key = lambda s: s.id).id
@@ -347,6 +346,7 @@ class TwitterBot(SingleServerIRCBot):
                              "https://identi.ca/notice/%d" % status.id
                             )
                     conn.privmsg(channel, mention)
+            time.sleep(interval)
     
     def start(self):
         try:
