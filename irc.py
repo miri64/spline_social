@@ -166,7 +166,7 @@ class CommandHandler:
             username = post.user.ldap_id
             try:
                 status = self.bot.posting_api.GetStatus(post.status_id)
-                created_at = datetime.strftime(post.created_at)
+                created_at = datetime.strftime("%Y-%m-%d %H:%M",post.created_at)
                 reply = "%s: %s (%s, id = %d)\r\n" % \
                         (username, status.text, created_at, status.id)
                 self._do_private_reply(reply)
