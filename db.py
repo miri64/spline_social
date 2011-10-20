@@ -15,6 +15,9 @@ class User(Base):
         
         def __repr__(self):
             return self.msg
+        
+        def __str__(self):
+            return repr(self)
     
     class NoRights(Exception):
         def __init__(self, msg):
@@ -22,6 +25,9 @@ class User(Base):
         
         def __repr__(self):
             return self.msg
+        
+        def __str__(self):
+            return repr(self)
     
     __tablename__ = 'users'
     user_id = sqlalchemy.Column(
@@ -192,6 +198,9 @@ class Post(Base):
         
         def __repr__(self):
             return self.msg
+        
+        def __str__(self):
+            return repr(self)
     
     def __init__(self, status, deleted = False, deleter = None):
         self.status_id = status.id

@@ -14,6 +14,9 @@ class CommandHandler:
         
         def __repr__(self):
             return self.command
+        
+        def __str__(self):
+            return repr(self)
     
     command_help = {
             'admin': {
