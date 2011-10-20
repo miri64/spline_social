@@ -1,5 +1,7 @@
 import os
 import sys
+import smtplib
+from email.mime.text import MIMEText
 
 try:
   from urlparse import parse_qsl
@@ -17,6 +19,14 @@ identica.REQUEST_TOKEN_URL = 'https://identi.ca/api/oauth/request_token?oauth_ca
 identica.ACCESS_TOKEN_URL  = 'https://identi.ca/api/oauth/access_token'
 identica.AUTHORIZATION_URL = 'https://identi.ca/api/oauth/authorize'
 identica.SIGNIN_URL        = ''
+
+information_text = """Hallo { ldap_id },
+es wurde folgendes in deinem Namen gepostet.
+"{ post_text }"
+Solltest du dies nicht gepostet haben, loesche diesen Post (id = { post_id }) und aender dein Passwort.
+Gruss,
+{ bot_nick }
+"""
 
 class Authorization:
     """ Simplifies the OAuth authorization for identi.ca
@@ -80,11 +90,33 @@ class Authorization:
         else:
             return dict(parse_qsl(content))
 
+def send_information_mail(bot_nick, user, post):
+    user_mail = "%s@spline.inf.fu-berlin.de" % user.ldap_id
+    bot_mail = "%s@spline.inf.fu-berlin.de" % 'spline'
+    text = information_text.replace('{ ldap_id }', user.ldap_id)
+    text = text.replace('{ post_text }', post.text)
+    text = text.replace('{ post_id }', str(post.id))
+    text = text.replace('{ bot_nick }', bot_nick)
+    msg = MIMEText(text)
+    
+    msg['Subject'] = 'Dein Post von %s (ID %d)' % (post.created_at, post.id)
+    msg['From'] = bot_mail
+    msg['To'] = user_mail
+    
+    smtp = smtplib.SMTP('localhost')
+    smtp.sendmail(bot_mail, [user_mail], msg.as_string())
+    smtp.quit()
+
 class IdenticaApi(identica.Api):
-    def PostUpdate(self, source, *args, **kwargs):
+    def PostUpdate(self, bot_nick, source, *args, **kwargs):
         user = User.get_by_irc_id(source)
-        status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
-        user.add_post(status)
+        if not user.banned:
+            status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
+            if user.gets_mail:
+                send_information_mail(bot_nick, user, status)
+            user.add_post(status)
+        else:
+            raise User.Banned('You are banned.')
         return status
     
     def DestroyStatus(self, source, id, *args, **kwargs):

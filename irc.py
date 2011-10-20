@@ -1,10 +1,9 @@
-from multiprocessing import Process, Lock
+from multiprocessing import Process
 from ircbot import SingleServerIRCBot
 from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
-from db import User, Post
+from db import User, Post, Timeline
 from apicalls import IdenticaError
-from config import Config
-import sys, time, traceback, config, re
+import sys, time, traceback, re
 
 class CommandHandler:
     class UsageError(Exception):
@@ -15,6 +14,10 @@ class CommandHandler:
             return self.command
     
     command_help = {
+            'bann': {
+                    'usage': 'bann <username>',
+                    'text': 'Banns a user and disables his or hers ability to post, delete posts and bann/unbann users.'
+                },
             'help': {
                     'usage': 'help [<command >]', 
                     'text': 'Show help.'
@@ -38,7 +41,11 @@ class CommandHandler:
             'reply': {
                     'usage': 'reply {<post_id> | last} <message>', 
                     'text': 'reply to last post or the post with the id <post_id>.'
-                }
+                },
+            'unbann': {
+                    'usage': 'unbann <username>',
+                    'text': 'Unbanns a user and reverts all effects of a bann.'
+                },
         }
     
     def __init__(self, bot, conn, event):
@@ -103,6 +110,30 @@ class CommandHandler:
             reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
         self._do_reply(reply)
     
+    def _set_bann(self, username, bann_status):
+        try:
+            bannee = User.get_by_ldap_id(username)
+            banner = User.get_by_irc_id(self.event.source())
+            if banner.banned:
+                reply = 'You are banned.'
+                bannee.session.close()
+                banner.session.close()
+            elif bannee != None:
+                bannee.banned = True
+                reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
+                bannee.session.commit()
+                bannee.session.close()
+                banner.session.close()
+            else:
+                reply = 'User %s does not exist.' % username
+                banner.session.close()
+        except User.NotLoggedIn, e:
+            reply = str(e)
+        self._do_reply(reply)
+    
+    def do_bann(self, username):
+        self._set_bann(username, True)
+    
     def do_help(self, command = None):
         if command == None:
             reply = 'Available commands: '+', '.join(CommandHandler.command_help.keys())
@@ -161,6 +192,7 @@ class CommandHandler:
         try:
             if len(message) > 0:
                 status = self.bot.posting_api.PostUpdate(
+                        self.conn.get_nickname(),
                         self.event.source(), 
                         message, 
                         in_reply_to_status_id
@@ -174,8 +206,10 @@ class CommandHandler:
                         "140 characters. Your text has length %d." % len(message)
             else:
                 reply = "%s" % e
-        except User.NotLoggedIn:
-            reply = "You must be identified to use the 'post' command"
+        except User.NotLoggedIn, e:
+            reply = str(e)
+        except User.Banned, e:
+            reply = str(e)
         self._do_reply(reply)
     
     def do_delete(self, argument):
@@ -206,17 +240,17 @@ class CommandHandler:
                 Post.mark_deleted(status_id)
             else:
                 reply = str(e)
-        except Post.DoesNotExist:
-            reply = "Status %d not tracked." % status_id
+        except Post.DoesNotExist, e:
+            reply = str(e)
         except User.NotLoggedIn, e:
+            reply = str(e)
+        except User.Banned, e:
             reply = str(e)
         self._do_reply(reply)
     
     def do_reply(self, recipient, message):
-        self.bot.since_id_lock.acquire()
-        conf = Config() 
         if recipient == 'last':
-            status_id = conf.identica.since_id
+            status_id = Timeline.get_by_name('mentions').since_id
         elif recipient.find('@') == 0:
             reply = "Direct user answer is not implemented yet."
             self._do_reply(reply)
@@ -225,18 +259,30 @@ class CommandHandler:
             status_id = int(recipient)
         else:
             raise CommandHandler.UsageError('reply')
-        self.bot.since_id_lock.release()
         status = self.bot.posting_api.GetStatus(status_id)
         self.do_post(message, status_id)
+    
+    def do_unbann(self, username):
+        self._set_bann(username, False)
 
 class TwitterBot(SingleServerIRCBot):
-    def __init__(self,posting_api,channel,nickname,server,port=6667, short_symbols='',since_id=0):
+    def __init__(
+            self,
+            posting_api,
+            channel,
+            server,
+            port=6667,
+            nickname='spline_social',
+            short_symbols='',
+            mention_interval=120,
+            since_id=0
+        ):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
         self.channel = channel
         self.posting_api = posting_api
         self.short_symbols = short_symbols
-        self.since_id = since_id
-        self.since_id_lock = Lock()
+        self.mention_interval = mention_interval
+        self.since_id = Timeline.update('mentions', since_id)
         self.mention_grabber = None
 
     def on_nicknameinuse(self, conn, event):
@@ -248,16 +294,17 @@ class TwitterBot(SingleServerIRCBot):
                 args=(
                         conn, 
                         self.channel, 
+                        self.mention_interval,
                         self.posting_api, 
                         self.since_id,
-                        self.since_id_lock,
                     )
             )
         self.mention_grabber.start()
         conn.join(self.channel)
     
     def on_disconnect(self, conn, event):
-        mention_grabber.terminate()
+        if self.mention_grabber != None:
+            self.mention_grabber.terminate()
 
     def on_privmsg(self, conn, event):
         self.do_command(event, event.arguments()[0])
@@ -285,36 +332,35 @@ class TwitterBot(SingleServerIRCBot):
             ).start()
    
     @staticmethod
-    def get_mentions(conn, channel, posting_api, since_id, since_id_lock):
+    def get_mentions(conn, channel, interval, posting_api, since_id):
         timestr = lambda sec: time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(sec)
             )
         while 1:
-            time.sleep(10)
-            since_id_lock.acquire()
-            statuses = posting_api.GetMentions(since_id)
-            if len(statuses) > 0 and conn.socket != None:   # if there is a connection
-                since_id = max(statuses, key = lambda s: s.id).id
-                conf = Config()
-                conf.identica.since_id = since_id
-                since_id_lock.release()
-                for status in statuses:
-                    mention = "@%s: %s (%s, %s)" % \
-                            (status.user.screen_name,
-                             status.text, 
-                             timestr(status.created_at_in_seconds),
-                             "https://identi.ca/notice/%d" % status.id
-                            )
-                    conn.privmsg(channel, mention)
-            else:
-                since_id_lock.release()
+            try:
+                statuses = posting_api.GetMentions(since_id)
+                if len(statuses) > 0 and conn.socket != None:   # if there is a connection
+                    since_id = max(statuses, key = lambda s: s.id).id
+                    Timeline.update('mentions', since_id)
+                    for status in statuses:
+                        mention = "@%s: %s (%s, %s)" % \
+                                (status.user.screen_name,
+                                 status.text, 
+                                 timestr(status.created_at_in_seconds),
+                                 "https://identi.ca/notice/%d" % status.id
+                                )
+                        conn.privmsg(channel, mention)
+                time.sleep(interval)
+            except BaseException, e:
+                print 'Critical:', e
     
     def start(self):
         try:
             SingleServerIRCBot.start(self)
         except BaseException:
             sys.stderr.write(traceback.format_exc())
-            self.mention_grabber.terminate()
+            if self.mention_grabber:
+                self.mention_grabber.terminate()
             exit(1)
         

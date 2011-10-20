@@ -16,6 +16,13 @@ class User(Base):
         def __repr__(self):
             return self.msg
     
+    class Banned(Exception):
+        def __init__(self, msg):
+            self.msg = msg
+        
+        def __repr__(self):
+            return self.msg
+    
     __tablename__ = 'users'
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
@@ -89,11 +96,7 @@ class User(Base):
             return False
     
     def add_post(self,status):
-        db = DBConn()
-        db_session = db.get_session()
         self.posts.append(Post(status))
-        db_session.commit()
-        db_session.close()
         self.session.commit()
         self.session.close()
     
@@ -103,6 +106,9 @@ class User(Base):
         db_session = db.get_session()
         user = db_session.query(User). \
                 filter(User.user_id == user_id).first()
+        if user == None:
+            db_session.close()
+            return None
         user.session = db_session
         return user
     
@@ -114,7 +120,20 @@ class User(Base):
                 select_from(sqlalchemy.orm.join(User, Login)). \
                 filter(Login.irc_id == irc_id).first()
         if user == None:
+            db_session.close()
             raise User.NotLoggedIn("You must identify to use this command.")
+        user.session = db_session
+        return user
+    
+    @staticmethod
+    def get_by_ldap_id(ldap_id):
+        db = DBConn()
+        db_session = db.get_session()
+        user = db_session.query(User). \
+                filter(User.ldap_id == ldap_id).first()
+        if user == None:
+            db_session.close()
+            return None
         user.session = db_session
         return user
 
@@ -200,7 +219,7 @@ class Post(Base):
                 from_self().order_by(Post.status_id).all()
     
     @staticmethod
-    def get_by_user(user_id):
+    def get_by_user(user_id, max = 10):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
@@ -208,7 +227,7 @@ class Post(Base):
                 filter(
                         User.ldap_id == user_id and 
                         Post.deleted == False
-                    ).all()
+                    ).limit(max).all()
     
     @staticmethod
     def get_by_day(datestring):
@@ -244,14 +263,17 @@ class Post(Base):
         db = DBConn()
         user = User.get_by_irc_id(irc_id)
         db_session = user.session
-        post = db_session.query(Post). \
-                filter(Post.status_id == status_id).first()
-        if post != None:
-            post.deleter = user
-            post.deleted = True
-            db_session.commit()
+        if not user.banned:
+            post = db_session.query(Post). \
+                    filter(Post.status_id == status_id).first()
+            if post != None:
+                post.deleter = user
+                post.deleted = True
+                db_session.commit()
+            else:
+                raise Post.DoesNotExist("Post %d not tracked" % status_id)
         else:
-            raise Post.DoesNotExist("Post %d not tracked" % status_id)
+            raise User.Banned('You are banned.')
         db_session.close()
 
 class Login(Base):
@@ -274,8 +296,6 @@ class Login(Base):
     expires = sqlalchemy.Column(
             sqlalchemy.DateTime,
             sqlalchemy.CheckConstraint("expires >= DATETIME('now')"), 
-            primary_key = True,
-            unique = True,
             nullable=False
         )
     
@@ -291,23 +311,87 @@ class Login(Base):
     def __repr__(self):
         return "<Post('%s','%s')>" % (self.irc_id, str(self.expires))
 
+class Timeline(Base):
+    __tablename__ = 'timelines'
+    
+    name = sqlalchemy.Column(
+            sqlalchemy.String, 
+            primary_key = True,
+            unique = True
+        )
+    since_id = sqlalchemy.Column(
+            sqlalchemy.Integer, 
+            nullable=False
+        )
+    
+    def __init__(self, name, since_id):
+        self.name = name.strip()
+        self.since_id = since_id
+    
+    def __repr__(self):
+        return "<Timeline('%s','%d')>" % (self.name, self.since_id)
+    
+    @staticmethod
+    def get_by_name(name):
+        db = DBConn()
+        db_session = db.get_session()
+        tl = db_session.query(Timeline). \
+                filter(Timeline.name == name.strip()).first()
+        if tl == None:
+            db_session.close()
+            return None
+        tl.session = db_session
+        return tl
+    
+    @staticmethod
+    def update(name, since_id):
+        tl = Timeline.get_by_name(name)
+        if tl == None:
+            db = DBConn()
+            tl = Timeline(name, since_id)
+            db.add(tl)
+            return since_id
+        if tl.since_id < since_id:
+            tl.since_id = since_id
+        since_id = int(tl.since_id)
+        tl.session.commit()
+        tl.session.close()
+        return since_id
+
 class DBConn(object):
     def __new__(type, *args, **kwargs):
         if not '_the_instance' in type.__dict__:
             type._the_instance = object.__new__(type)
         return type._the_instance
     
-    def __init__(self, driver = None, username = None, password = None, name = None):
+    def __init__(
+            self, 
+            driver = None, 
+            name = None, 
+            username = None, 
+            password = None, 
+            host = 'localhost',
+            port = None
+        ):
         if driver != None and name != None:
             if password == None:
                 password = ''
             if username == None:
                 authentication = ''
             else:
-                authentication = '%s:%s' % (username,password,)
-            self.engine = sqlalchemy.create_engine(
-                    '%s://%s/%s' % (driver, authentication, name,)
-                )
+                authentication = '%s:%s' % (username,password)
+            if host == None:
+                host = 'localhost'
+            elif port != None:
+                host = '%s:%s' % (host,port)
+            if driver.find('sqlite') < 0:
+                self.engine = sqlalchemy.create_engine(
+                        '%s://%s@%s/%s' % (driver,authentication,host,name)
+                    )
+            else:
+                self.engine = sqlalchemy.create_engine(
+                        '%s:///%s' % (driver,name)
+                    )
             Base.metadata.create_all(self.engine)
     
     def get_session(self):
