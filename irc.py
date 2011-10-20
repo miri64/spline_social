@@ -334,19 +334,22 @@ class TwitterBot(SingleServerIRCBot):
                 time.localtime(sec)
             )
         while 1:
-            statuses = posting_api.GetMentions(since_id)
-            if len(statuses) > 0 and conn.socket != None:   # if there is a connection
-                since_id = max(statuses, key = lambda s: s.id).id
-                Timeline.update('mentions', since_id)
-                for status in statuses:
-                    mention = "@%s: %s (%s, %s)" % \
-                            (status.user.screen_name,
-                             status.text, 
-                             timestr(status.created_at_in_seconds),
-                             "https://identi.ca/notice/%d" % status.id
-                            )
-                    conn.privmsg(channel, mention)
-            time.sleep(interval)
+            try:
+                statuses = posting_api.GetMentions(since_id)
+                if len(statuses) > 0 and conn.socket != None:   # if there is a connection
+                    since_id = max(statuses, key = lambda s: s.id).id
+                    Timeline.update('mentions', since_id)
+                    for status in statuses:
+                        mention = "@%s: %s (%s, %s)" % \
+                                (status.user.screen_name,
+                                 status.text, 
+                                 timestr(status.created_at_in_seconds),
+                                 "https://identi.ca/notice/%d" % status.id
+                                )
+                        conn.privmsg(channel, mention)
+                time.sleep(interval)
+            except BaseException, e:
+                print 'Critical:', e
     
     def start(self):
         try:
