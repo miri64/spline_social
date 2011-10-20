@@ -12,8 +12,9 @@ class AuthenticationError(Exception):
         return self.msg
 
 class SplineSocialAPI:
-    def __init__(self, database, ldap_server, ldap_port = None):
+    def __init__(self, database, ldap_base, ldap_server, ldap_port = None):
         self.database = database
+        self.ldap_base = base
         if ldap_port == None:
             self.l = ldap.initialize('ldap://%s' % ldap_server)
         else:
@@ -22,7 +23,8 @@ class SplineSocialAPI:
     
     def add_user(self, ldap_username, ldap_password, 
             irc_password, irc_username = None, gets_mail = False):
-        (res, msg) = self.l.simple_bind_s(ldap_username, ldap_password)
+        ldap_dn = 'uid=%s,%s' % (ldap_username, self.ldap_base)
+        (res, msg) = self.l.simple_bind_s(ldap_dn, ldap_password)
         if res == 97:
             self.l.unbind_s()
             if irc_username != None:
@@ -89,11 +91,11 @@ class SplineSocialAPI:
                 posts
             )
 
-def initialize(rpc_port, database, ldap_server, ldap_port):
+def initialize(rpc_port, database, ldap_base, ldap_server, ldap_port):
     conf = config.Config()
     server = SimpleXMLRPCServer(('localhost', rpc_port))
     
-    server.register_instance(SplineSocialAPI(database,ldap_server,ldap_port))
+    server.register_instance(SplineSocialAPI(database,ldap_base,ldap_server,ldap_port))
     p = Process(target=server.serve_forever)
     p.start()
     return p

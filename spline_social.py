@@ -69,6 +69,7 @@ def main(argv):
     rpc_server_thread = rpcs.initialize(
             conf.rpc.port, 
             db, 
+            conf.ldap.base,
             conf.ldap.server,
             conf.ldap.port
         )
