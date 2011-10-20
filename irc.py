@@ -301,6 +301,7 @@ class TwitterBot(SingleServerIRCBot):
             )
         self.mention_grabber.start()
         conn.join(self.channel)
+        print "Joined channel %s" % self.channel
     
     def on_disconnect(self, conn, event):
         if self.mention_grabber != None:

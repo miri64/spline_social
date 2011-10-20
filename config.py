@@ -13,7 +13,7 @@ DEFAULTS = {
         },
         'SMTP': {
             'server': 'localhost'
-        }
+        },
         'Bot': {
             'bot_nick': 'spline_social',
             'since_id': 0,
