@@ -133,14 +133,22 @@ class CommandHandler:
                 user.session.close()
                 admin.session.close()
             elif user != None:
-                user.admin = not user.admin
-                user.session.commit()
+                if user.user_id != admin.user_id:
+                    user.admin = not user.admin
+                    if user.admin:
+                        reply = 'You made %s an admin.' % user.ldap_id
+                    else:
+                        reply = 'You took admin rights from %s.' % user.ldap_id
+                    user.session.commit()
+                else:
+                    reply = 'You can not strip yourself of your admin rights.'
                 user.session.close()
                 admin.session.close()
             else:
                 admin.session.close()
         except User.NotLoggedIn, e:
-            user.session.close()
+            if user != None:
+                user.session.close()
             reply = str(e)
         
     def _set_bann(self, username, bann_status):
@@ -155,21 +163,21 @@ class CommandHandler:
                 reply = 'You are no admin.'
                 bannee.session.close()
                 banner.session.close()
-            elif bannee.user_id == banner.user_id:
-                reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un', username)
-                bannee.session.close()
-                banner.session.close()
             elif bannee != None:
-                bannee.banned = True
-                reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
-                bannee.session.commit()
+                if bannee.user_id == banner.user_id:
+                    reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un', username)
+                else:
+                    bannee.banned = True
+                    reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
+                    bannee.session.commit()
                 bannee.session.close()
                 banner.session.close()
             else:
                 reply = 'User %s does not exist.' % username
                 banner.session.close()
         except User.NotLoggedIn, e:
-            bannee.session.close()
+            if bannee != None
+                bannee.session.close()
             reply = str(e)
         self._do_reply(reply)
     
