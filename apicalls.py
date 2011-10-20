@@ -96,7 +96,7 @@ class IdenticaApi(identica.Api):
         self.mail_server = mail_server
         super(IdenticaApi,self).__init__(*args, **kwargs)
     
-    def _send_information_mail(self,user, post):
+    def _send_information_mail(self, user, post):
         user_mail = "%s@spline.inf.fu-berlin.de" % user.ldap_id
         bot_mail = "%s@spline.inf.fu-berlin.de" % 'spline'
         text = information_text.replace('{ ldap_id }', user.ldap_id)
@@ -121,7 +121,11 @@ class IdenticaApi(identica.Api):
             if user.gets_mail:
                 self._send_information_mail(user, status)
         else:
+            user.session.commit()
+            user.session.close()
             raise User.Banned('You are banned.')
+        user.session.commit()
+        user.session.close()
         return status
     
     def DestroyStatus(self, source, id, *args, **kwargs):

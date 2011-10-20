@@ -97,8 +97,6 @@ class User(Base):
     
     def add_post(self,status):
         self.posts.append(Post(status))
-        self.session.commit()
-        self.session.close()
     
     @staticmethod
     def get_by_user_id(user_id):
