@@ -5,6 +5,7 @@ from db import User, Post, Timeline
 from apicalls import IdenticaError
 import sys, time, traceback, re
 from urllib2 import URLError
+from datetime import datetime
 
 class CommandHandler:
     class UsageError(Exception):
