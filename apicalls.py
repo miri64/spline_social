@@ -123,7 +123,7 @@ class IdenticaApi(identica.Api):
         else:
             user.session.commit()
             user.session.close()
-            raise User.Banned('You are banned.')
+            raise User.NoRights('You are banned.')
         user.session.commit()
         user.session.close()
         return status

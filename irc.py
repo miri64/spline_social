@@ -16,7 +16,11 @@ class CommandHandler:
             return self.command
     
     command_help = {
-            'bann': {
+            'admin': {
+                    'usage': 'admin <username>',
+                    'text': 'Toggles the admin state of <username>.'
+                },
+            'ban': {
                     'usage': 'bann <username>',
                     'text': 'Banns a user and disables his or hers ability to post, delete posts and bann/unbann users.'
                 },
@@ -44,7 +48,7 @@ class CommandHandler:
                     'usage': 'reply {<post_id> | last} <message>', 
                     'text': 'reply to last post or the post with the id <post_id>.'
                 },
-            'unbann': {
+            'unban': {
                     'usage': 'unbann <username>',
                     'text': 'Unbanns a user and reverts all effects of a bann.'
                 },
@@ -77,12 +81,15 @@ class CommandHandler:
     
     def do(self, command_str):
         command_f = {
+                'admin': self.do_admin,
+                'ban': self.do_bann,
                 'help': self.do_help,
                 'identify': self.do_identify,
                 'history': self.do_history,
                 'post': self.do_post,
                 'delete': self.do_delete,
                 'reply': self.do_reply,
+                'unban': self.do_unbann,
             }
         args = command_str.split()
         command = args[0].strip()
@@ -113,12 +120,43 @@ class CommandHandler:
             reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
         self._do_reply(reply)
     
+    def do_admin(self,username):
+        try:
+            user = User.get_by_ldap_id(username)
+            admin = User.get_by_irc_id(self.event.source())
+            if admin == None:
+                reply = 'You are no admin.'
+                user.session.close()
+                admin.session.close()
+            elif not admin.admin:
+                reply = 'You are no admin.'
+                user.session.close()
+                admin.session.close()
+            elif user != None:
+                user.admin = not user.admin
+                user.session.commit()
+                user.session.close()
+                admin.session.close()
+            else:
+                admin.session.close()
+        except User.NotLoggedIn, e:
+            user.session.close()
+            reply = str(e)
+        
     def _set_bann(self, username, bann_status):
         try:
             bannee = User.get_by_ldap_id(username)
             banner = User.get_by_irc_id(self.event.source())
             if banner.banned:
                 reply = 'You are banned.'
+                bannee.session.close()
+                banner.session.close()
+            elif not banner.admin:
+                reply = 'You are no admin.'
+                bannee.session.close()
+                banner.session.close()
+            elif bannee.user_id == banner.user_id:
+                reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un', username)
                 bannee.session.close()
                 banner.session.close()
             elif bannee != None:
@@ -131,6 +169,7 @@ class CommandHandler:
                 reply = 'User %s does not exist.' % username
                 banner.session.close()
         except User.NotLoggedIn, e:
+            bannee.session.close()
             reply = str(e)
         self._do_reply(reply)
     
@@ -210,7 +249,7 @@ class CommandHandler:
                 reply = "%s" % e
         except User.NotLoggedIn, e:
             reply = str(e)
-        except User.Banned, e:
+        except User.NoRights, e:
             reply = str(e)
         self._do_reply(reply)
     
@@ -246,7 +285,7 @@ class CommandHandler:
             reply = str(e)
         except User.NotLoggedIn, e:
             reply = str(e)
-        except User.Banned, e:
+        except User.NoRights, e:
             reply = str(e)
         self._do_reply(reply)
     

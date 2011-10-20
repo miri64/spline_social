@@ -16,7 +16,7 @@ class User(Base):
         def __repr__(self):
             return self.msg
     
-    class Banned(Exception):
+    class NoRights(Exception):
         def __init__(self, msg):
             self.msg = msg
         
@@ -31,11 +31,12 @@ class User(Base):
         )
     ldap_id = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    admin = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     salt = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     
-    def __init__(self, user_id, ldap_id, password, banned = False, gets_mail = False, salt = None):
+    def __init__(self, user_id, ldap_id, password, admin = False, banned = False, gets_mail = False, salt = None):
         self.__dict__['db'] = DBConn()
         self.user_id = user_id
         self.ldap_id = ldap_id
@@ -45,6 +46,13 @@ class User(Base):
         else:
             self.salt = salt
             self.password = (password,)
+        db = DBConn()
+        db_session = db.get_session()
+        users = db_session.query(User).first()
+        if users == None:
+            admin = True
+        db_session.close()
+        self.admin = admin
         self.banned = banned
         self.gets_mail = gets_mail
         
@@ -271,7 +279,7 @@ class Post(Base):
             else:
                 raise Post.DoesNotExist("Post %d not tracked" % status_id)
         else:
-            raise User.Banned('You are banned.')
+            raise User.NoRights('You are banned.')
         db_session.close()
 
 class Login(Base):
