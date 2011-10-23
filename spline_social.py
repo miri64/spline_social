@@ -59,6 +59,8 @@ def main(argv):
         )
     
     api = apicalls.IdenticaApi(
+            conf.bot.bot_nick,
+            conf.smtp.server,
             consumer_key = consumer_key,
             consumer_secret = consumer_secret,
             access_token_key = access_key,

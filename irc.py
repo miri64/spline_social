@@ -4,6 +4,8 @@ from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_nu
 from db import User, Post, Timeline
 from apicalls import IdenticaError
 import sys, time, traceback, re
+from urllib2 import URLError
+from datetime import datetime
 
 class CommandHandler:
     class UsageError(Exception):
@@ -12,11 +14,18 @@ class CommandHandler:
         
         def __repr__(self):
             return self.command
+        
+        def __str__(self):
+            return repr(self)
     
     command_help = {
-            'bann': {
-                    'usage': 'bann <username>',
-                    'text': 'Banns a user and disables his or hers ability to post, delete posts and bann/unbann users.'
+            'admin': {
+                    'usage': 'admin <username>',
+                    'text': 'Toggles the admin state of <username>.'
+                },
+            'ban': {
+                    'usage': 'ban <username>',
+                    'text': 'Bans a user and disables his or hers ability to post, delete posts and bann/unbann users.'
                 },
             'help': {
                     'usage': 'help [<command >]', 
@@ -35,16 +44,16 @@ class CommandHandler:
                     'text': 'Post a message to identi.ca.'
                 },
             'delete': {
-                    'usage': 'remove {<post_id> | last}', 
+                    'usage': 'delete {<post_id> | last}', 
                     'text': 'Remove last post or the post with the id <post_id>.'
                 },
             'reply': {
                     'usage': 'reply {<post_id> | last} <message>', 
                     'text': 'reply to last post or the post with the id <post_id>.'
                 },
-            'unbann': {
-                    'usage': 'unbann <username>',
-                    'text': 'Unbanns a user and reverts all effects of a bann.'
+            'unban': {
+                    'usage': 'unban <username>',
+                    'text': 'Unbans a user and reverts all effects of a ban.'
                 },
         }
     
@@ -75,37 +84,76 @@ class CommandHandler:
     
     def do(self, command_str):
         command_f = {
+                'admin': self.do_admin,
+                'ban': self.do_bann,
                 'help': self.do_help,
                 'identify': self.do_identify,
                 'history': self.do_history,
                 'post': self.do_post,
                 'delete': self.do_delete,
                 'reply': self.do_reply,
+                'unban': self.do_unbann,
             }
         args = command_str.split()
         command = args[0].strip()
         try:
-            if command == 'post':
-                message = command_str[len('post '):].strip()
-                command_f[command](message)
-            elif command == 'reply':
-                if len(args) < 2:
-                    raise CommandHandler.UsageError(command)
-                recipient = args[1].strip()
-                message = command_str[len('reply '+recipient)+1:].strip()
-                command_f[command](recipient, message)
-            else:
+            while 1:
                 try:
-                    command_f[command](*args[1:])
-                except TypeError:
-                    raise CommandHandler.UsageError(command)
-            return
+                    if command == 'post':
+                        message = command_str[len('post '):].strip()
+                        command_f[command](message)
+                    elif command == 'reply':
+                        if len(args) < 2:
+                            raise CommandHandler.UsageError(command)
+                        recipient = args[1].strip()
+                        message = command_str[len('reply '+recipient)+1:].strip()
+                        command_f[command](recipient, message)
+                    else:
+                        try:
+                            command_f[command](*args[1:])
+                        except TypeError:
+                            raise CommandHandler.UsageError(command)
+                    return
+                except URLError:
+                    print "UrlError", e
+                    time.sleep(0.2)
         except KeyError:
-            reply = "Unknown command: " + cmd
+            reply = "Unknown command: " + command
         except CommandHandler.UsageError, e:
             reply = "Usage: %s" % CommandHandler.command_help[e.command]['usage']
         self._do_reply(reply)
     
+    def do_admin(self,username):
+        try:
+            user = User.get_by_ldap_id(username)
+            admin = User.get_by_irc_id(self.event.source())
+            if admin == None:
+                reply = 'You are no admin.'
+                user.session.close()
+                admin.session.close()
+            elif not admin.admin:
+                reply = 'You are no admin.'
+                user.session.close()
+                admin.session.close()
+            elif user != None:
+                if user.user_id != admin.user_id:
+                    user.admin = not user.admin
+                    if user.admin:
+                        reply = 'You made %s an admin.' % user.ldap_id
+                    else:
+                        reply = 'You took admin rights from %s.' % user.ldap_id
+                    user.session.commit()
+                else:
+                    reply = 'You can not strip yourself of your admin rights.'
+                user.session.close()
+                admin.session.close()
+            else:
+                admin.session.close()
+        except User.NotLoggedIn, e:
+            if user != None:
+                user.session.close()
+            reply = str(e)
+        
     def _set_bann(self, username, bann_status):
         try:
             bannee = User.get_by_ldap_id(username)
@@ -114,16 +162,25 @@ class CommandHandler:
                 reply = 'You are banned.'
                 bannee.session.close()
                 banner.session.close()
+            elif not banner.admin:
+                reply = 'You are no admin.'
+                bannee.session.close()
+                banner.session.close()
             elif bannee != None:
-                bannee.banned = True
-                reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
-                bannee.session.commit()
+                if bannee.user_id == banner.user_id:
+                    reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un')
+                else:
+                    bannee.banned = True
+                    reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
+                    bannee.session.commit()
                 bannee.session.close()
                 banner.session.close()
             else:
                 reply = 'User %s does not exist.' % username
                 banner.session.close()
         except User.NotLoggedIn, e:
+            if bannee != None:
+                bannee.session.close()
             reply = str(e)
         self._do_reply(reply)
     
@@ -159,7 +216,7 @@ class CommandHandler:
             username = post.user.ldap_id
             try:
                 status = self.bot.posting_api.GetStatus(post.status_id)
-                created_at = datetime.strftime(post.created_at)
+                created_at = post.created_at
                 reply = "%s: %s (%s, id = %d)\r\n" % \
                         (username, status.text, created_at, status.id)
                 self._do_private_reply(reply)
@@ -177,10 +234,10 @@ class CommandHandler:
         if argument == None:
             session, posts = Post.get_last()
         else:
-            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',args[1]):
-                session, posts = Post.get_by_day(args[1])
+            if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',argument):
+                session, posts = Post.get_by_day(argument)
             else:
-                session, posts = Post.get_by_user(args[1])
+                session, posts = Post.get_by_user(argument)
         self._generate_history_replies(posts)
         session.close()
     
@@ -188,7 +245,6 @@ class CommandHandler:
         try:
             if len(message) > 0:
                 status = self.bot.posting_api.PostUpdate(
-                        self.conn.get_nickname(),
                         self.event.source(), 
                         message, 
                         in_reply_to_status_id
@@ -204,7 +260,7 @@ class CommandHandler:
                 reply = "%s" % e
         except User.NotLoggedIn, e:
             reply = str(e)
-        except User.Banned, e:
+        except User.NoRights, e:
             reply = str(e)
         self._do_reply(reply)
     
@@ -216,8 +272,8 @@ class CommandHandler:
                 status_id = posts[0].status_id
             else:
                 reply = "%s, I don't know any posts." % self._get_nick()
-                if event.target() in self.channels.keys():
-                    conn.privmsg(event.target(), reply)
+                if self.event.target() in self.channels.keys():
+                    self.conn.privmsg(event.target(), reply)
                 else:
                     conn.privmsg(nick, reply)
         elif re.match('^[0-9]+$', argument):
@@ -229,7 +285,7 @@ class CommandHandler:
                     self.event.source(), 
                     status_id
                 )
-            reply = "%s, status %d deleted" % status_id
+            reply = "Status %d deleted" % status_id
         except IdenticaError, e:
             if str(e).find('Status deleted') >= 0:
                 reply = "Status %d already deleted." % status_id
@@ -240,7 +296,7 @@ class CommandHandler:
             reply = str(e)
         except User.NotLoggedIn, e:
             reply = str(e)
-        except User.Banned, e:
+        except User.NoRights, e:
             reply = str(e)
         self._do_reply(reply)
     
@@ -297,6 +353,7 @@ class TwitterBot(SingleServerIRCBot):
             )
         self.mention_grabber.start()
         conn.join(self.channel)
+        print "Joined channel %s" % self.channel
     
     def on_disconnect(self, conn, event):
         if self.mention_grabber != None:

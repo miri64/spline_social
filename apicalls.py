@@ -90,36 +90,46 @@ class Authorization:
         else:
             return dict(parse_qsl(content))
 
-def send_information_mail(bot_nick, user, post):
-    user_mail = "%s@spline.inf.fu-berlin.de" % user.ldap_id
-    bot_mail = "%s@spline.inf.fu-berlin.de" % 'spline'
-    text = information_text.replace('{ ldap_id }', user.ldap_id)
-    text = text.replace('{ post_text }', post.text)
-    text = text.replace('{ post_id }', str(post.id))
-    text = text.replace('{ bot_nick }', bot_nick)
-    msg = MIMEText(text)
-    
-    msg['Subject'] = 'Dein Post von %s (ID %d)' % (post.created_at, post.id)
-    msg['From'] = bot_mail
-    msg['To'] = user_mail
-    
-    smtp = smtplib.SMTP('localhost')
-    smtp.sendmail(bot_mail, [user_mail], msg.as_string())
-    smtp.quit()
-
 class IdenticaApi(identica.Api):
-    def PostUpdate(self, bot_nick, source, *args, **kwargs):
+    def __init__(self, bot_nick, mail_server, *args, **kwargs):
+        self.bot_nick = bot_nick
+        self.mail_server = mail_server
+        super(IdenticaApi,self).__init__(*args, **kwargs)
+    
+    def _send_information_mail(self, user, post):
+        user_mail = "%s@spline.inf.fu-berlin.de" % user.ldap_id
+        bot_mail = "%s@spline.inf.fu-berlin.de" % 'spline'
+        text = information_text.replace('{ ldap_id }', user.ldap_id)
+        text = text.replace('{ post_text }', post.text)
+        text = text.replace('{ post_id }', str(post.id))
+        text = text.replace('{ bot_nick }', self.bot_nick)
+        msg = MIMEText(text)
+        
+        msg['Subject'] = 'Dein Post vom %s (ID %d)' % (post.created_at, post.id)
+        msg['From'] = bot_mail
+        msg['To'] = user_mail
+        
+        smtp = smtplib.SMTP(self.mail_server)
+        smtp.sendmail(bot_mail, [user_mail], msg.as_string())
+        smtp.quit()
+    
+    def PostUpdate(self, source, *args, **kwargs):
         user = User.get_by_irc_id(source)
         if not user.banned:
             status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
             user.add_post(status)
             if user.gets_mail:
                 try:
-                    send_information_mail(bot_nick, user, status)
+                    send_information_mail(user, status)
                 except BaseException, e:
                     print 'Error in send_infomation_mail:', type(e).__name__, e
+                    exit(1)
         else:
-            raise User.Banned('You are banned.')
+            user.session.commit()
+            user.session.close()
+            raise User.NoRights('You are banned.')
+        user.session.commit()
+        user.session.close()
         return status
     
     def DestroyStatus(self, source, id, *args, **kwargs):

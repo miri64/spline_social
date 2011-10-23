@@ -10,6 +10,9 @@ class AuthenticationError(Exception):
     
     def __repr__(self):
         return self.msg
+        
+    def __str__(self):
+        return repr(self)
 
 class SplineSocialAPI:
     def __init__(self, database, ldap_base, ldap_server, ldap_port = None):

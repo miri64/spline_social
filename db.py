@@ -15,13 +15,19 @@ class User(Base):
         
         def __repr__(self):
             return self.msg
+        
+        def __str__(self):
+            return repr(self)
     
-    class Banned(Exception):
+    class NoRights(Exception):
         def __init__(self, msg):
             self.msg = msg
         
         def __repr__(self):
             return self.msg
+        
+        def __str__(self):
+            return repr(self)
     
     __tablename__ = 'users'
     user_id = sqlalchemy.Column(
@@ -31,11 +37,12 @@ class User(Base):
         )
     ldap_id = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    admin = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     salt = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     
-    def __init__(self, user_id, ldap_id, password, banned = False, gets_mail = False, salt = None):
+    def __init__(self, user_id, ldap_id, password, admin = False, banned = False, gets_mail = False, salt = None):
         self.__dict__['db'] = DBConn()
         self.user_id = user_id
         self.ldap_id = ldap_id
@@ -45,6 +52,13 @@ class User(Base):
         else:
             self.salt = salt
             self.password = (password,)
+        db = DBConn()
+        db_session = db.get_session()
+        users = db_session.query(User).first()
+        if users == None:
+            admin = True
+        db_session.close()
+        self.admin = admin
         self.banned = banned
         self.gets_mail = gets_mail
         
@@ -97,8 +111,6 @@ class User(Base):
     
     def add_post(self,status):
         self.posts.append(Post(status))
-        self.session.commit()
-        self.session.close()
     
     @staticmethod
     def get_by_user_id(user_id):
@@ -186,6 +198,9 @@ class Post(Base):
         
         def __repr__(self):
             return self.msg
+        
+        def __str__(self):
+            return repr(self)
     
     def __init__(self, status, deleted = False, deleter = None):
         self.status_id = status.id
@@ -223,7 +238,7 @@ class Post(Base):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
-                select_from(sqlalchemy.orm.join(User, Post)). \
+                select_from(sqlalchemy.orm.join(User, Post, onclause=Post.poster_id)). \
                 filter(
                         User.ldap_id == user_id and 
                         Post.deleted == False
@@ -231,11 +246,11 @@ class Post(Base):
     
     @staticmethod
     def get_by_day(datestring):
-        date = date.strptime(datestring, "%Y-%m-%d")
+        day = datetime.strptime(datestring, "%Y-%m-%d").date
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
                 filter(
-                        Post.created_at.date == date and
+                        Post.created_at.date == day and
                         Post.deleted == False
                     ).all()
     
@@ -273,7 +288,7 @@ class Post(Base):
             else:
                 raise Post.DoesNotExist("Post %d not tracked" % status_id)
         else:
-            raise User.Banned('You are banned.')
+            raise User.NoRights('You are banned.')
         db_session.close()
 
 class Login(Base):
