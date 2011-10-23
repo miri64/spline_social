@@ -112,9 +112,12 @@ class IdenticaApi(identica.Api):
         user = User.get_by_irc_id(source)
         if not user.banned:
             status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
-            if user.gets_mail:
-                send_information_mail(bot_nick, user, status)
             user.add_post(status)
+            if user.gets_mail:
+                try:
+                    send_information_mail(bot_nick, user, status)
+                except BaseException, e:
+                    print 'Error in send_infomation_mail:', type(e).__name__, e
         else:
             raise User.Banned('You are banned.')
         return status
