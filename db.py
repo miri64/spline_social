@@ -246,11 +246,15 @@ class Post(Base):
     
     @staticmethod
     def get_by_day(datestring):
-        day = datetime.strptime(datestring, "%Y-%m-%d").date
+        db = DBConn()
+        day = datetime.strptime(datestring, "%Y-%m-%d")
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
                 filter(
-                        Post.created_at.date == day and
+                        sqlalchemy.and_([
+                            Post.created_at >= day,
+                            Post.created_at < day + timedelta(days=1),
+                        ]) and
                         Post.deleted == False
                     ).all()
     
