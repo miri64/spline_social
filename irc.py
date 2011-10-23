@@ -349,7 +349,8 @@ class TwitterBot(SingleServerIRCBot):
                         self.mention_interval,
                         self.posting_api, 
                         self.since_id,
-                    )
+                    ),
+                name='mention_grapper'
             )
         self.mention_grabber.start()
         conn.join(self.channel)
@@ -381,7 +382,12 @@ class TwitterBot(SingleServerIRCBot):
     def do_command(self, event, cmd):
         Process(
                 target=CommandHandler(self,self.connection,event).do, 
-                args=(cmd,)
+                args=(cmd,),
+                name='%s-%s-%s' % (
+                        cmd, 
+                        nm_to_n(event.source()), 
+                        datetime.now().isoformat()
+                    )
             ).start()
    
     @staticmethod

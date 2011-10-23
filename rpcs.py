@@ -99,6 +99,6 @@ def initialize(rpc_port, database, ldap_base, ldap_server, ldap_port):
     server = SimpleXMLRPCServer(('localhost', rpc_port))
     
     server.register_instance(SplineSocialAPI(database,ldap_base,ldap_server,ldap_port))
-    p = Process(target=server.serve_forever)
+    p = Process(target=server.serve_forever, name="RPC-Server")
     p.start()
     return p
