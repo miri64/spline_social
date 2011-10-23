@@ -238,7 +238,7 @@ class Post(Base):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
-                select_from(sqlalchemy.orm.join(User, Post, onclause=Post.poster_id)). \
+                join(Post.user). \
                 filter(
                         User.ldap_id == user_id and 
                         Post.deleted == False
