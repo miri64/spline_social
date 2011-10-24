@@ -29,6 +29,16 @@ class User(Base):
         def __str__(self):
             return repr(self)
     
+    class EmptyPasswordException:
+        def __init__(self, msg):
+            self.msg = msg
+        
+        def __repr__(self):
+            return self.msg
+        
+        def __str__(self):
+            return repr(self)
+    
     __tablename__ = 'users'
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
@@ -84,7 +94,13 @@ class User(Base):
     
     def _get_pwhash(self, password):
         hash = sha()
-        hash.update(password)
+        if password != None and password != '':
+            hash.update(password)
+        else:
+            raise User.EmptyPasswordException(
+                    'Your password is None or an empty string: '+
+                    repr(password)
+                )
         hash.update(self.salt)
         return hash.hexdigest()
     
