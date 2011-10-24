@@ -309,6 +309,21 @@ class Post(Base):
                     ).limit(max).all()
     
     @staticmethod
+    def get_by_irc_id(irc_id, max = 10):
+        if irc_id == None:
+            raise ValueError("'irc_id' may not be None.")
+        if max < 0:
+            raise ValueError("'max' may not be negative.")
+        db_session = DBConn.get_db_session()
+        return db_session.query(Post). \
+                join(Post.user). \
+                join(Login). \
+                filter(
+                        Login.irc_id == irc_id and 
+                        Post.deleted == False
+                    ).limit(max).all()
+    
+    @staticmethod
     def get_by_day(datestring):
         if datestring == None:
             raise ValueError("'datestring' may not be None.")

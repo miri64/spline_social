@@ -36,8 +36,8 @@ class CommandHandler:
                     'text': 'Identify yourself.'
                 },
             'history': {
-                    'usage': 'history [{YYYY-MM-DD | <username>}]', 
-                    'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (spline nickname), or the last 10 posted posts (no parameter).'
+                    'usage': 'history [{YYYY-MM-DD | <username> | @<spline_nick>}]', 
+                    'text': 'Show history of posts of the day with date YYYY-MM-DD, the posts of the user <username> (or the user with spline_nick), or the last 10 posted posts (no parameter).'
                 },
             'post': {
                     'usage': 'post <message>', 
@@ -230,8 +230,10 @@ class CommandHandler:
         else:
             if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',argument):
                 posts = Post.get_by_day(argument)
-            else:
+            elif argument[0] == '@':
                 posts = Post.get_by_user_id(argument[1:])
+            else:
+                posts = Post.get_by_irc_id(argument)
         self._generate_history_replies(posts)
     
     def do_post(self, message, in_reply_to_status_id = None):
