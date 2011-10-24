@@ -220,7 +220,7 @@ class CommandHandler:
             reply = login_error_reply
         else:
             if user.login(self.event.source(), password):
-                reply = "Operation successful!"
+                reply = "You are now identified as %s." % user.user_id
             else:
                 reply = login_error_reply
         self._do_reply(reply)
@@ -232,7 +232,7 @@ class CommandHandler:
             try:
                 status = self.bot.posting_api.GetStatus(post.status_id)
                 created_at = post.created_at
-                reply = "%s: %s (%s, id = %d)\r\n" % \
+                reply = "%s: %s (%s, id = %d)" % \
                         (username, status.text, created_at, status.id)
                 self._do_private_reply(reply)
                 shown_posts += 1
@@ -287,10 +287,11 @@ class CommandHandler:
                 status_id = posts[0].status_id
             else:
                 reply = "%s, I don't know any posts." % self._get_nick()
-                if self.event.target() in self.channels.keys():
-                    self.conn.privmsg(event.target(), reply)
+                if self.event.target() in self.bot.channels.keys():
+                    self.conn.privmsg(self.event.target(), reply)
                 else:
                     conn.privmsg(nick, reply)
+                return
         elif re.match('^[0-9]+$', argument):
             status_id = int(argument)
         else:
