@@ -33,7 +33,8 @@ class User(Base):
     user_id = sqlalchemy.Column(
             sqlalchemy.String, 
             primary_key=True, 
-            unique=True
+            unique=True,
+            nullable=False
         )
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     admin = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
@@ -141,7 +142,8 @@ class Post(Base):
     status_id = sqlalchemy.Column(
             sqlalchemy.Integer, 
             primary_key=True,
-            unique=True
+            unique=True,
+            nullable=False
         )
     created_at = sqlalchemy.Column(
             sqlalchemy.DateTime, 
@@ -323,7 +325,8 @@ class Timeline(Base):
     name = sqlalchemy.Column(
             sqlalchemy.String, 
             primary_key = True,
-            unique = True
+            unique = True,
+            nullable=False
         )
     since_id = sqlalchemy.Column(
             sqlalchemy.Integer, 
