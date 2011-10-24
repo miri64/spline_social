@@ -111,8 +111,16 @@ class CommandHandler:
                     else:
                         try:
                             command_f[command](*args[1:])
-                        except TypeError:
-                            raise CommandHandler.UsageError(command)
+                        except TypeError, e:
+                            if reduce(
+                                    lambda x,y: x or y, 
+                                    [str(e).find(f.__name__) >= 0 
+                                            for f in command_f.values()], 
+                                    False
+                                ):
+                                raise CommandHandler.UsageError(command)
+                            else:
+                                raise e
                     return
                 except URLError:
                     print "UrlError", e
