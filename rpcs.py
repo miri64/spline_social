@@ -57,19 +57,14 @@ class SplineSocialAPI:
     def toggle_gets_mail(self, username, password):
         user = self._get_and_validate_user(username, password)
         user.gets_mail = not user.gets_mail
-        user.session.commit()
-        user.session.close()
         return user.gets_mail
     
     def set_new_password(self, username, password, new_password):
         user = self._get_and_validate_user(username, password)
         user.password = new_password
-        user.session.commit()
-        user.session.close()
     
     def get_user(self, username):
         user = User.get_by_user_id(username)
-        user.session.close()
         return {
                 'user_id': user.user_id,
                 'ldap_id': user.ldap_id,
@@ -79,9 +74,9 @@ class SplineSocialAPI:
     
     def get_tweets(self, username = None, limit = 20):
         if username == None:
-            session, posts = Post.get_last(limit)
+            posts = Post.get_last(limit)
         else:
-            session, posts = Post.get_by_user_id(username, limit)
+            posts = Post.get_by_user_id(username, limit)
         return map(
                 lambda x: {
                     'poster': User.get_by_user_id(x.poster_id).ldap_id, 

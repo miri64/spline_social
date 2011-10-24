@@ -117,7 +117,7 @@ class IdenticaApi(identica.Api):
         user = User.get_by_irc_id(source)
         if not user.banned:
             status = super(IdenticaApi,self).PostUpdate(*args, **kwargs)
-            user.add_post(status)
+            user.add_post(status, source)
             if user.gets_mail:
                 try:
                     send_information_mail(user, status)
@@ -125,11 +125,7 @@ class IdenticaApi(identica.Api):
                     print 'Error in send_infomation_mail:', type(e).__name__, e
                     exit(1)
         else:
-            user.session.commit()
-            user.session.close()
             raise User.NoRights('You are banned.')
-        user.session.commit()
-        user.session.close()
         return status
     
     def DestroyStatus(self, source, id, *args, **kwargs):

@@ -140,12 +140,8 @@ class CommandHandler:
             admin = User.get_by_irc_id(self.event.source())
             if admin == None:
                 reply = 'You are no admin.'
-                user.session.close()
-                admin.session.close()
             elif not admin.admin:
                 reply = 'You are no admin.'
-                user.session.close()
-                admin.session.close()
             elif user != None:
                 if user.user_id != admin.user_id:
                     user.admin = not user.admin
@@ -153,16 +149,9 @@ class CommandHandler:
                         reply = 'You made %s an admin.' % user.user_id
                     else:
                         reply = 'You took admin rights from %s.' % user.user_id
-                    user.session.commit()
                 else:
                     reply = 'You can not strip yourself of your admin rights.'
-                user.session.close()
-                admin.session.close()
-            else:
-                admin.session.close()
         except User.NotLoggedIn, e:
-            if user != None:
-                user.session.close()
             reply = str(e)
         self._do_reply(reply)
         
@@ -175,27 +164,17 @@ class CommandHandler:
             banner = User.get_by_irc_id(self.event.source())
             if banner.banned:
                 reply = 'You are banned.'
-                bannee.session.close()
-                banner.session.close()
             elif not banner.admin:
                 reply = 'You are no admin.'
-                bannee.session.close()
-                banner.session.close()
             elif bannee != None:
                 if bannee.user_id == banner.user_id:
                     reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un')
                 else:
                     bannee.banned = bann_status
                     reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', bannee.user_id)
-                    bannee.session.commit()
-                bannee.session.close()
-                banner.session.close()
             else:
                 reply = 'User %s does not exist.' % username
-                banner.session.close()
         except User.NotLoggedIn, e:
-            if bannee != None:
-                bannee.session.close()
             reply = str(e)
         self._do_reply(reply)
     
@@ -247,14 +226,13 @@ class CommandHandler:
     
     def do_history(self, argument = None):
         if argument == None:
-            session, posts = Post.get_last()
+            posts = Post.get_last()
         else:
             if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',argument):
-                session, posts = Post.get_by_day(argument)
+                posts = Post.get_by_day(argument)
             else:
-                session, posts = Post.get_by_user_id(argument)
+                posts = Post.get_by_user_id(argument[1:])
         self._generate_history_replies(posts)
-        session.close()
     
     def do_post(self, message, in_reply_to_status_id = None):
         try:
@@ -281,8 +259,7 @@ class CommandHandler:
     
     def do_delete(self, argument):
         if argument == 'last':
-            session, posts = Post.get_last(1)
-            session.close()
+            posts = Post.get_last(1)
             if len(posts) > 0:
                 status_id = posts[0].status_id
             else:

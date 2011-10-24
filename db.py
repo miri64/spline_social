@@ -1,12 +1,17 @@
 import os
 from datetime import datetime, date, timedelta
+from irclib import nm_to_n
 import time
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
+from multiprocessing import current_process
 
 from hashlib import sha256 as sha
 
 Base = declarative_base()
+
+IntegrityError = sqlalchemy.exc.IntegrityError
+FlushError = sqlalchemy.exc.FlushError
 
 class User(Base):
     class NotLoggedIn(Exception):
@@ -54,38 +59,52 @@ class User(Base):
     
     def __init__(self, user_id, password, admin = False, 
             banned = False, gets_mail = False, salt = None):
-        self.__dict__['db'] = DBConn()
-        self.user_id = user_id
+        if user_id == None:
+            raise ValueError("'user_id' may not be None.")
+        if password == None or password == '':
+            raise ValueError("'password' may not be None or empty.")
+        db_session = DBConn.get_db_session()
+        self.__dict__['user_id'] = user_id
         if salt == None:
-            self.salt = ''.join(map(lambda x:'./12345678890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'[ord(x)%65], os.urandom(64)))
-            self.password = password
+            self.__dict__['salt'] = ''.join(
+                    map(
+                            lambda x:('./12345678890ABCDE' + 
+                                    'FGHIJKLMNOPQRSTUVWX' + 
+                                    'YZabcdefghijklmnopq' + 
+                                    'rstuvwxyz')[ord(x)%65], 
+                            os.urandom(64)
+                        )
+                )
+            self.__dict__['password'] = self._get_pwhash(password)
         else:
-            self.salt = salt
-            self.password = (password,)
-        db = DBConn()
-        db_session = db.get_session()
+            self.__dict__['salt'] = salt
+            self.__dict__['password'] = password
         users = db_session.query(User).first()
         if users == None:
             admin = True
-        db_session.close()
-        self.admin = admin
-        self.banned = banned
-        self.gets_mail = gets_mail
+        self.__dict__['admin'] = admin
+        self.__dict__['banned'] = banned
+        self.__dict__['gets_mail'] = gets_mail
+        DBConn().add(self)
         
     def __setattr__(self, attr, value):
         if attr != 'password':
-            if attr in ['banned', 'gets_mail']:
-                if value in [0, None, False]:
-                    self.__dict__[attr] = False
+            if attr in ['banned', 'gets_mail', 'admin']:
+                if value in [0, None, False, '']:
+                    super(User, self).__setattr__(attr, False)
                 else:
-                    self.__dict__[attr] = True
+                    super(User, self).__setattr__(attr, True)
             else:
-                self.__dict__[attr] = value
+                super(User, self).__setattr__(attr, value)
         else:
-            if isinstance(value, str):
-                self.__dict__[attr] = self._get_pwhash(value)
-            else:
-                self.__dict__[attr] = value[0]
+            super(User, self).__setattr__(attr, self._get_pwhash(value))
+        if attr != '_sa_instance_state':
+            db_session = DBConn.get_db_session()
+            try:
+                db_session.commit()
+            except IntegrityError, e:
+                db_session.rollback()
+                raise e
     
     def __repr__(self):
         return "<User('%s','%s','%s','%s','%s')>" % \
@@ -109,49 +128,63 @@ class User(Base):
     
     def login(self,irc_id,password):
         if self.validate_password(password):
-            db = DBConn()
-            db_session = db.get_session()
-            login = db_session.query(Login).filter(Login.irc_id == irc_id).first()
+            db_session = DBConn.get_db_session()
+            login = Login.get(irc_id)
             if login == None:
                 login = Login(irc_id,datetime.now()+timedelta(1))
                 self.logins.append(login)
             else:
-                login.expires = datetime.now()+timedelta(1)
+                login.update()
             db_session.commit()
-            db_session.close()
-            self.session.commit()
-            self.session.close()
             return True
         else:
             return False
     
-    def add_post(self,status):
-        self.posts.append(Post(status))
+    def update_login(self,irc_id):
+        login = Login.get(irc_id)
+        if login != None:
+            login.update()
+    
+    def add_post(self,status,irc_id = None):
+        if status == None:
+            raise ValueError("'status' may not be None.")
+        db_session = DBConn.get_db_session()
+        if irc_id != None:
+            self.update_login(irc_id)
+        post = Post(status)
+        self.posts.append(post)
+        db_session.commit()
+        return post
     
     @staticmethod
     def get_by_user_id(user_id):
-        db = DBConn()
-        db_session = db.get_session()
+        if user_id == None:
+            raise ValueError("'user_id' may not be None.")
+        db_session = DBConn.get_db_session()
         user = db_session.query(User). \
                 filter(User.user_id == user_id).first()
-        if user == None:
-            db_session.close()
-            return None
-        user.session = db_session
         return user
     
     @staticmethod
     def get_by_irc_id(irc_id):
-        db = DBConn()
-        db_session = db.get_session()
-        user = db_session.query(User). \
-                select_from(sqlalchemy.orm.join(User, Login)). \
-                filter(Login.irc_id == irc_id).first()
+        if irc_id == None:
+            raise ValueError("'irc_id' may not be None.")
+        db_session = DBConn.get_db_session()
+        login = Login.get(irc_id)
+        if login == None:
+            raise User.NotLoggedIn("IRC-User '%s' not logged in." % nm_to_n(irc_id))
+        return login.user
+    
+    @staticmethod
+    def delete(user):
         if user == None:
-            db_session.close()
-            raise User.NotLoggedIn("You must identify to use this command.")
-        user.session = db_session
-        return user
+            raise ValueError("'user' may not be None.")
+        if not isinstance(user, User):
+            user = db_session.query(User). \
+                    filter(User.user_id == str(user)).first()
+        db_session = DBConn.get_db_session()
+        db_session.delete(user)
+        db_session.commit()
 
 class Post(Base):
     __tablename__ = 'posts'
@@ -208,41 +241,67 @@ class Post(Base):
             return repr(self)
     
     def __init__(self, status, deleted = False, deleter = None):
-        self.status_id = status.id
-        t = time.localtime(
+        self.__dict__['status_id'] = status.id
+        if status.created_at_in_seconds == None:
+            raise ValueError("'created_at' may not be None.")
+        if status.id == None:
+            raise ValueError("'status_id' may not be None.")
+        self.__dict__['created_at'] = datetime.fromtimestamp(
                 int(status.created_at_in_seconds)
             )
-        self.created_at = datetime(
-                t.tm_year,t.tm_mon,t.tm_mday, 
-                t.tm_hour, t.tm_min, t.tm_sec
-            )
-        self.deleted = deleted
-        self.deleter = deleter
+        self.__dict__['deleted'] = deleted
+        self.__dict__['deleter'] = deleter
     
     def __repr__(self):
         return "<Post('%s')>" % self.status_id
     
+    def __setattr__(self, attr, value):
+        db_session = DBConn.get_db_session()
+        if attr == 'deleted':
+            if value in [0, None, False, '']:
+                value = False
+            else:
+                value = True
+        super(Post, self).__setattr__(attr, value)
+        if attr != '_sa_instance_state':
+            try:
+                db_session.commit()
+            except IntegrityError, e:
+                db_session.rollback()
+                raise e
+    
+    @staticmethod
+    def get(status_id):
+        if status_id == None:
+            raise ValueError("'status_id' may not be None.")
+        db_session = DBConn.get_db_session()
+        return db_session.query(Post). \
+                filter(Post.status_id == status_id).first()
+    
     @staticmethod
     def get_all():
-        db = DBConn()
-        db_session = db.get_session()
-        return db_session, db_session.query(Post). \
+        db_session = DBConn.get_db_session()
+        return db_session.query(Post). \
                 filter(Post.deleted == False).all()
     
     @staticmethod
     def get_last(max = 10):
-        db = DBConn()
-        db_session = db.get_session()
-        return db_session, db_session.query(Post). \
+        if max < 0:
+            raise ValueError("'max' may not be negative.")
+        db_session = DBConn.get_db_session()
+        return db_session.query(Post). \
                 filter(Post.deleted == False). \
                 order_by("status_id DESC").limit(max). \
                 from_self().order_by(Post.status_id).all()
     
     @staticmethod
     def get_by_user_id(user_id, max = 10):
-        db = DBConn()
-        db_session = db.get_session()
-        return db_session, db_session.query(Post). \
+        if user_id == None:
+            raise ValueError("'user_id' may not be None.")
+        if max < 0:
+            raise ValueError("'max' may not be negative.")
+        db_session = DBConn.get_db_session()
+        return db_session.query(Post). \
                 join(Post.user). \
                 filter(
                         User.user_id == user_id and 
@@ -251,10 +310,11 @@ class Post(Base):
     
     @staticmethod
     def get_by_day(datestring):
-        db = DBConn()
+        if datestring == None:
+            raise ValueError("'datestring' may not be None.")
         day = datetime.strptime(datestring, "%Y-%m-%d")
-        db_session = db.get_session()
-        return db_session, db_session.query(Post). \
+        db_session = DBConn.get_db_session()
+        return db_session.query(Post). \
                 filter(
                         sqlalchemy.and_([
                             Post.created_at >= day,
@@ -265,40 +325,42 @@ class Post(Base):
     
     @staticmethod
     def mark_deleted(status_id, exception):
+        if status_id == None:
+            raise ValueError("'status_id' may not be None.")
+        if exception == None:
+            raise ValueError("'exception' may not be None.")
         try:
             if exception.args[0].find('Status deleted') < 0:
-                return
+                raise ValueError("First argument of 'exception' must contain 'Status deleted'.")
         except AttributeError:
-            return
-        db = DBConn()
-        db_session = db.get_session()
+            raise ValueError("First argument of 'exception' must contain 'Status deleted'.")
+        db_session = DBConn.get_db_session()
         post = db_session.query(Post). \
                 filter(Post.status_id == status_id).first()
         if post != None:
             post.deleter_id = 'By API'
             post.deleted = True
-            db_session.commit()
         else:
             raise Post.DoesNotExist("Post %d not tracked" % status_id)
-        db_session.close()
     
     @staticmethod
     def delete(status_id, irc_id):
-        db = DBConn()
+        if status_id == None:
+            raise ValueError("'status_id' may not be None.")
+        if irc_id == None:
+            raise ValueError("'irc_id' may not be None.")
+        db_session = DBConn.get_db_session()
         user = User.get_by_irc_id(irc_id)
-        db_session = user.session
         if not user.banned:
             post = db_session.query(Post). \
                     filter(Post.status_id == status_id).first()
             if post != None:
                 post.deleter = user
                 post.deleted = True
-                db_session.commit()
             else:
                 raise Post.DoesNotExist("Post %d not tracked" % status_id)
         else:
             raise User.NoRights('You are banned.')
-        db_session.close()
 
 class Login(Base):
     __tablename__ = 'logins'
@@ -329,11 +391,41 @@ class Login(Base):
         )
     
     def __init__(self, irc_id, expires):
-        self.irc_id = irc_id
-        self.expires = expires
+        if irc_id == None:
+            raise ValueError("'irc_id' may not be None.")
+        if expires == None:
+            raise ValueError("'expires' may not be None.")
+        self.__dict__['irc_id'] = irc_id
+        self.__dict__['expires'] = expires
     
     def __repr__(self):
         return "<Post('%s','%s')>" % (self.irc_id, str(self.expires))
+    
+    def __setattr__(self, attr, value):
+        if attr == 'expires':
+            raise AttributeError("'expires' can't be set. Use update to set it to tomorrow.")
+        db_session = DBConn.get_db_session()
+        super(Login,self).__setattr__(attr, value)
+        if attr != '_sa_instance_state':
+            try:
+                db_session.commit()
+            except IntegrityError, e:
+                db_session.rollback()
+                raise e
+    
+    def update(self):
+        super(Login,self).__setattr__('expires', datetime.now()+timedelta(1))
+    
+    @staticmethod
+    def get(irc_id):
+        if irc_id == None:
+            raise ValueError("'irc_id' may not be None.")
+        db_session = DBConn.get_db_session()
+        db_session.query(Login). \
+                filter(Login.expires <= datetime.now()). \
+                delete()
+        return db_session.query(Login). \
+                filter(Login.irc_id == irc_id).first()
 
 class Timeline(Base):
     __tablename__ = 'timelines'
@@ -350,42 +442,55 @@ class Timeline(Base):
         )
     
     def __init__(self, name, since_id):
+        if name == None:
+            raise ValueError("'name' may not be None.")
+        if since_id == None:
+            raise ValueError("'since_id' may not be None.")
         self.name = name.strip()
         self.since_id = since_id
+        DBConn().add(self)
     
     def __repr__(self):
         return "<Timeline('%s','%d')>" % (self.name, self.since_id)
     
+    def __setattr__(self, attr, value):
+        db_session = DBConn.get_db_session()
+        super(Timeline, self).__setattr__(attr, value)
+        if attr != '_sa_instance_state':
+            try:
+                db_session.commit()
+            except IntegrityError, e:
+                db_session.rollback()
+                raise e
+    
     @staticmethod
     def get_by_name(name):
-        db = DBConn()
-        db_session = db.get_session()
+        if name == None:
+            raise ValueError("'name' may not be None.")
+        db_session = DBConn.get_db_session()
         tl = db_session.query(Timeline). \
                 filter(Timeline.name == name.strip()).first()
-        if tl == None:
-            db_session.close()
-            return None
-        tl.session = db_session
         return tl
     
     @staticmethod
     def update(name, since_id):
+        if name == None:
+            raise ValueError("'name' may not be None.")
+        if since_id == None:
+            raise ValueError("'since_id' may not be None.")
         tl = Timeline.get_by_name(name)
         if tl == None:
-            db = DBConn()
             tl = Timeline(name, since_id)
-            db.add(tl)
-            return since_id
+            return tl.since_id
         if tl.since_id < since_id:
             tl.since_id = since_id
+            DBConn.get_db_session().commit()
         since_id = int(tl.since_id)
-        tl.session.commit()
-        tl.session.close()
         return since_id
 
 class DBConn(object):
     def __new__(type, *args, **kwargs):
-        if not '_the_instance' in type.__dict__:
+        if not '_the_instance' in type.__dict__ or not type.__dict__.get('_the_instance'):
             type._the_instance = object.__new__(type)
         return type._the_instance
     
@@ -418,23 +523,37 @@ class DBConn(object):
                         '%s:///%s' % (driver,name)
                     )
             Base.metadata.create_all(self.engine)
+            self.sessions = {}
+    
+    def __del__(self):
+        for pid in self.sessions:
+            self.sessions[pid].close()
+        self.engine.dispose()
     
     def get_session(self):
-        Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        return Session()
+        pid = str(current_process().pid)
+        session = self.sessions.get(pid)
+        if session == None:
+            Session = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            self.sessions[pid] = Session()
+        return self.sessions[pid]
     
     def add(self, obj):
+        if obj == None:
+            raise ValueError("'obj' may not be None.")
         db_session = self.get_session()
-        db_session.add(obj)
         try:
+            db_session.add(obj)
             db_session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            pass
-        finally:
-            db_session.close()
+        except IntegrityError, e:
+            db_session.rollback()
+            raise e
+        except FlushError, e:
+            db_session.rollback()
+            raise e
+        return True
     
-    def get_query(self, type):
-        db_session = self.get_session()
-        query = db_session.query(type)
-        db_session.close()
-        return query
+    @staticmethod
+    def get_db_session():
+        db = DBConn()
+        return db.get_session()
