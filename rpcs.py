@@ -24,24 +24,21 @@ class SplineSocialAPI:
             self.l = ldap.initialize('ldap://%s:%d' % (ldap_server, ldap_port))
         self.l.protocol_version = ldap.VERSION3
     
-    def add_user(self, ldap_username, ldap_password, 
-            irc_password, irc_username = None, gets_mail = False):
-        ldap_dn = 'uid=%s,%s' % (ldap_username, self.ldap_base)
+    def add_user(self, username, ldap_password, irc_password, gets_mail = False):
+        ldap_dn = 'uid=%s,%s' % (username, self.ldap_base)
         (res, msg) = self.l.simple_bind_s(ldap_dn, ldap_password)
         if res == 97:
             self.l.unbind_s()
-            if irc_username != None:
+            if username != None:
                 user = User(
-                        user_id=irc_username,
+                        user_id=username,
                         password=irc_password,
-                        ldap_id=ldap_username,
                         gets_mail=gets_mail
                     )
             else:
                 user = User(
-                        user_id=ldap_username,
+                        user_id=username,
                         password=irc_password,
-                        ldap_id=ldap_username,
                         gets_mail=gets_mail
                     )
             self.database.add(user)
@@ -84,8 +81,7 @@ class SplineSocialAPI:
         if username == None:
             session, posts = Post.get_last(limit)
         else:
-            session, posts = Post.get_by_user(username, limit)
-        session.close()
+            session, posts = Post.get_by_user_id(username, limit)
         return map(
                 lambda x: {
                     'poster': User.get_by_user_id(x.poster_id).ldap_id, 

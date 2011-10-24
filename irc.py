@@ -20,11 +20,11 @@ class CommandHandler:
     
     command_help = {
             'admin': {
-                    'usage': 'admin <username>',
-                    'text': 'Toggles the admin state of <username>.'
+                    'usage': 'admin {<username> | @<spline_nick>}',
+                    'text': 'Toggles the admin state of <username> / user with <spline_nick>.'
                 },
             'ban': {
-                    'usage': 'ban <username>',
+                    'usage': 'ban {<username> | @<spline_nick>}',
                     'text': 'Bans a user and disables his or hers ability to post, delete posts and bann/unbann users.'
                 },
             'help': {
@@ -32,7 +32,7 @@ class CommandHandler:
                     'text': 'Show help.'
                 },
             'identify': {
-                    'usage': 'identify <username> <password>', 
+                    'usage': 'identify <spline_nick> <irc_password>', 
                     'text': 'Identify yourself.'
                 },
             'history': {
@@ -52,7 +52,7 @@ class CommandHandler:
                     'text': 'reply to last post or the post with the id <post_id>.'
                 },
             'unban': {
-                    'usage': 'unban <username>',
+                    'usage': 'unban {<username> | @<spline_nick>}',
                     'text': 'Unbans a user and reverts all effects of a ban.'
                 },
         }
@@ -125,7 +125,10 @@ class CommandHandler:
     
     def do_admin(self,username):
         try:
-            user = User.get_by_ldap_id(username)
+            if username[0] == '@':
+                user = User.get_by_user_id(username[1:])
+            else:
+                user = User.get_by_irc_id(username)
             admin = User.get_by_irc_id(self.event.source())
             if admin == None:
                 reply = 'You are no admin.'
@@ -139,9 +142,9 @@ class CommandHandler:
                 if user.user_id != admin.user_id:
                     user.admin = not user.admin
                     if user.admin:
-                        reply = 'You made %s an admin.' % user.ldap_id
+                        reply = 'You made %s an admin.' % user.user_id
                     else:
-                        reply = 'You took admin rights from %s.' % user.ldap_id
+                        reply = 'You took admin rights from %s.' % user.user_id
                     user.session.commit()
                 else:
                     reply = 'You can not strip yourself of your admin rights.'
@@ -156,7 +159,10 @@ class CommandHandler:
         
     def _set_bann(self, username, bann_status):
         try:
-            bannee = User.get_by_ldap_id(username)
+            if username[0] == '@':
+                bannee = User.get_by_user_id(username[1:])
+            else:
+                bannee = User.get_by_irc_id(username)
             banner = User.get_by_irc_id(self.event.source())
             if banner.banned:
                 reply = 'You are banned.'
@@ -171,7 +177,7 @@ class CommandHandler:
                     reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un')
                 else:
                     bannee.banned = bann_status
-                    reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
+                    reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', bannee.user_id)
                     bannee.session.commit()
                 bannee.session.close()
                 banner.session.close()
@@ -213,7 +219,7 @@ class CommandHandler:
     def _generate_history_replies(self, posts):
         shown_posts = 0
         for post in posts:
-            username = post.user.ldap_id
+            username = post.user.user_id
             try:
                 status = self.bot.posting_api.GetStatus(post.status_id)
                 created_at = post.created_at
@@ -237,7 +243,7 @@ class CommandHandler:
             if re.match('^[0-9]{4}-[0-1][0-9]-[0-9]{2}$',argument):
                 session, posts = Post.get_by_day(argument)
             else:
-                session, posts = Post.get_by_user(argument)
+                session, posts = Post.get_by_user_id(argument)
         self._generate_history_replies(posts)
         session.close()
     

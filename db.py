@@ -35,17 +35,16 @@ class User(Base):
             primary_key=True, 
             unique=True
         )
-    ldap_id = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
     password = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     admin = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     banned = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     gets_mail = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
     salt = sqlalchemy.Column(sqlalchemy.String, nullable=False)
     
-    def __init__(self, user_id, ldap_id, password, admin = False, banned = False, gets_mail = False, salt = None):
+    def __init__(self, user_id, password, admin = False, 
+            banned = False, gets_mail = False, salt = None):
         self.__dict__['db'] = DBConn()
         self.user_id = user_id
-        self.ldap_id = ldap_id
         if salt == None:
             self.salt = ''.join(map(lambda x:'./12345678890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'[ord(x)%65], os.urandom(64)))
             self.password = password
@@ -136,18 +135,6 @@ class User(Base):
             raise User.NotLoggedIn("You must identify to use this command.")
         user.session = db_session
         return user
-    
-    @staticmethod
-    def get_by_ldap_id(ldap_id):
-        db = DBConn()
-        db_session = db.get_session()
-        user = db_session.query(User). \
-                filter(User.ldap_id == ldap_id).first()
-        if user == None:
-            db_session.close()
-            return None
-        user.session = db_session
-        return user
 
 class Post(Base):
     __tablename__ = 'posts'
@@ -234,13 +221,13 @@ class Post(Base):
                 from_self().order_by(Post.status_id).all()
     
     @staticmethod
-    def get_by_user(user_id, max = 10):
+    def get_by_user_id(user_id, max = 10):
         db = DBConn()
         db_session = db.get_session()
         return db_session, db_session.query(Post). \
                 join(Post.user). \
                 filter(
-                        User.ldap_id == user_id and 
+                        User.user_id == user_id and 
                         Post.deleted == False
                     ).limit(max).all()
     

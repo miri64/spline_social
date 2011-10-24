@@ -20,7 +20,7 @@ identica.ACCESS_TOKEN_URL  = 'https://identi.ca/api/oauth/access_token'
 identica.AUTHORIZATION_URL = 'https://identi.ca/api/oauth/authorize'
 identica.SIGNIN_URL        = ''
 
-information_text = """Hallo { ldap_id },
+information_text = """Hallo { user_id },
 es wurde folgendes in deinem Namen gepostet.
 "{ post_text }"
 Solltest du dies nicht gepostet haben, loesche diesen Post (id = { post_id }) und aender dein Passwort.
@@ -97,9 +97,9 @@ class IdenticaApi(identica.Api):
         super(IdenticaApi,self).__init__(*args, **kwargs)
     
     def _send_information_mail(self, user, post):
-        user_mail = "%s@spline.inf.fu-berlin.de" % user.ldap_id
+        user_mail = "%s@spline.inf.fu-berlin.de" % user.user_id
         bot_mail = "%s@spline.inf.fu-berlin.de" % 'spline'
-        text = information_text.replace('{ ldap_id }', user.ldap_id)
+        text = information_text.replace('{ user_id }', user.user_id)
         text = text.replace('{ post_text }', post.text)
         text = text.replace('{ post_id }', str(post.id))
         text = text.replace('{ bot_nick }', self.bot_nick)
