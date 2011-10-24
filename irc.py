@@ -170,7 +170,7 @@ class CommandHandler:
                 if bannee.user_id == banner.user_id:
                     reply = 'You can\'t %sban yourself.' % ('' if bann_status else 'un')
                 else:
-                    bannee.banned = True
+                    bannee.banned = bann_status
                     reply = 'You %sbanned user %s.' % ('' if bann_status else 'un', username)
                     bannee.session.commit()
                 bannee.session.close()
