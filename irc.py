@@ -164,6 +164,7 @@ class CommandHandler:
             if user != None:
                 user.session.close()
             reply = str(e)
+        self._do_reply(reply)
         
     def _set_bann(self, username, bann_status):
         try:
