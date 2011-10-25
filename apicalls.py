@@ -120,7 +120,7 @@ class IdenticaApi(identica.Api):
             user.add_post(status, source)
             if user.gets_mail:
                 try:
-                    send_information_mail(user, status)
+                    self._send_information_mail(user, status)
                 except BaseException, e:
                     print 'Error in send_infomation_mail:', type(e).__name__, e
                     exit(1)
