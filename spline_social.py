@@ -39,7 +39,8 @@ def main(argv):
     else:
         config_file = CONFIG_FILE
     conf        = config.Config(config_file)
-    
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
     consumer_key = conf.identica.consumer_key
     consumer_secret = conf.identica.consumer_secret
     
