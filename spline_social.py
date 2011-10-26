@@ -81,6 +81,7 @@ def main(argv):
             conf.irc.channel, 
             conf.irc.server, 
             conf.irc.port,
+            conf.irc.ssl,
             conf.bot.bot_nick, 
             conf.bot.short_symbols,
             conf.bot.mention_interval,

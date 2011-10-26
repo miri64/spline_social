@@ -1,6 +1,6 @@
 from multiprocessing import Process
 from ircbot import SingleServerIRCBot
-from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr
+from irclib import nm_to_n, nm_to_h, irc_lower, ip_numstr_to_quad, ip_quad_to_numstr, ServerConnectionError
 from db import User, Post, Timeline
 from apicalls import IdenticaError
 import sys, time, traceback, re
@@ -319,6 +319,7 @@ class TwitterBot(SingleServerIRCBot):
             channel,
             server,
             port=6667,
+            ssl=False,
             nickname='spline_social',
             short_symbols='',
             mention_interval=120,
@@ -326,12 +327,30 @@ class TwitterBot(SingleServerIRCBot):
         ):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
         self.channel = channel
+        self.ssl = ssl
         self.posting_api = posting_api
         self.short_symbols = short_symbols
         self.mention_interval = mention_interval
         self.since_id = Timeline.update('mentions', since_id)
         self.mention_grabber = None
-
+    
+    def _connect(self):
+        """Overloaded from SingleServerIRCBot"""
+        password = None
+        if len(self.server_list[0]) > 2:
+            password = self.server_list[0][2]
+        try:
+            self.connect(
+                    self.server_list[0][0],
+                    self.server_list[0][1],
+                    self._nickname,
+                    password,
+                    ircname=self._realname,
+                    ssl=self.ssl,
+                )
+        except ServerConnectionError:
+            pass
+    
     def on_nicknameinuse(self, conn, event):
         conn.nick(conn.get_nickname() + "_")
 

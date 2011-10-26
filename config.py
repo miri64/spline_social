@@ -4,6 +4,7 @@ import re
 DEFAULTS = {
         'IRC': {
             'port': 6667,
+            'ssl': False,
         },
         'LDAP': {
             'port': None,
@@ -40,6 +41,8 @@ class _Section:
         if self.has_option(attr):
             if re.match('^[0-9]+$',self.options[attr]):
                 return int(self.options[attr])
+            elif self.options[attr] in ['True', 'False']:
+                return bool(self.options[attr])
             else:
                 return self.options[attr]
         else:
