@@ -5,7 +5,6 @@ DEFAULTS = {
         'IRC': {
             'port': 6667,
             'ssl': False,
-            'ipv6': False,
         },
         'LDAP': {
             'port': None,

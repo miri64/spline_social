@@ -320,7 +320,6 @@ class TwitterBot(SingleServerIRCBot):
             server,
             port=6667,
             ssl=False,
-            ipv6=False,
             nickname='spline_social',
             short_symbols='',
             mention_interval=120,
@@ -329,7 +328,6 @@ class TwitterBot(SingleServerIRCBot):
         SingleServerIRCBot.__init__(self, [(server, port)], nickname, nickname)
         self.channel = channel
         self.ssl = ssl
-        self.ipv6 = ipv6
         self.posting_api = posting_api
         self.short_symbols = short_symbols
         self.mention_interval = mention_interval
@@ -349,7 +347,6 @@ class TwitterBot(SingleServerIRCBot):
                     password,
                     ircname=self._realname,
                     ssl=self.ssl,
-                    ipv6=self.ipv6,
                 )
         except ServerConnectionError:
             pass
